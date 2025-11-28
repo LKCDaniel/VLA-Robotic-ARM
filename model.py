@@ -37,7 +37,7 @@ class ResNet(nn.Module):
         self.stage1 = ResidualBlock(32, 64)
         self.stage2 = ResidualBlock(64, 128)
         self.stage3 = ResidualBlock(128, 256)
-        self.stage4 = ResidualBlock(256, 512)
+        self.stage4 = ResidualBlock(256, 32)
         self.pooling = nn.AdaptiveAvgPool2d((1, 1))
 
         self._initialize_weights()
@@ -87,21 +87,40 @@ class BottleneckBlock(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, in_dim, h_dim, out_dim, num_layers):
+    def __init__(self, in_dim, h_dim, num_layers):
         super().__init__()
-        self.in_proj = nn.Linear(in_dim, h_dim)
-        self.layers = nn.ModuleList([BottleneckBlock(h_dim, 2 * h_dim) for _ in range(num_layers)])
-        self.out_proj = nn.Linear(h_dim, out_dim)
+        self.layers = nn.ModuleList([BottleneckBlock(in_dim, h_dim) for _ in range(num_layers)])
 
     def forward(self, x):
-        x = self.in_proj(x)
         for layer in self.layers:
             x = layer(x)
-        x = self.out_proj(x)
         return x
 
 
-def main():
+class VisionActionModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.image_encoder1 = ResNet()
+        self.image_encoder2 = ResNet()
+        self.feature_projector = nn.Linear(69, 16)
+        self.feature_fuser = MLP(in_dim=16, h_dim=64, num_layers=4)
+        self.action_predictor = nn.Sequential(nn.Linear(16, 3), nn.Tanh())
+        self.catch_state_predictor = nn.Sequential(nn.Linear(16, 1), nn.Softmax(dim=-1))
+        self.task_state_predictor = nn.Sequential(nn.Linear(16, 1), nn.Softmax(dim=-1))
+
+    def forward(self, img1, img2, state):
+        f1 = self.image_encoder1(img1)
+        f2 = self.image_encoder2(img2)
+        f = torch.concatenate([f1, f2, state], dim=-1)
+        f = self.feature_projector(f)
+        f = self.feature_fuser(f)
+        action = self.action_predictor(f)
+        catch_state = self.catch_state_predictor(f)
+        task_state = self.task_state_predictor(f)
+        return action, catch_state, task_state
+
+
+def main1():
     device = "cuda"
     model = ResNet()
     model = model.to(device)
@@ -111,7 +130,7 @@ def main():
         print(output.shape)
 
 
-if __name__ == '__main__':
+def main2():
     device = "cuda"
     model = MLP(512, 32, 5, 4)
     model = model.to(device)
@@ -119,3 +138,15 @@ if __name__ == '__main__':
     with torch.no_grad():
         output = model(input_tensor)
         print(output.shape)
+
+
+if __name__ == '__main__':
+    device = "cuda"
+    model = VisionActionModel()
+    model = model.to(device)
+    img1 = torch.randn(13, 3, 512, 512).to(device)
+    img2 = torch.randn(13, 3, 512, 512).to(device)
+    state = torch.randn(13, 5).to(device)
+    action, catch_state, task_state = model(img1, img2, state)
+    print(action.shape, catch_state.shape, task_state.shape)
+    print(catch_state, task_state)
