@@ -23,7 +23,7 @@ def record_episode(episode_save_dir, scene):
         robot_arm_state.append(catch_state)
         robot_arm_state_record.append(robot_arm_state)
         robot_arm_to_pick_object = scene.robot_arm_to_pick_object()
-        if np.linalg.norm(robot_arm_to_pick_object) < robot_arm_speed * 1.01:
+        if np.linalg.norm(robot_arm_to_pick_object) < robot_arm_speed * 1.1:
             break
         action = robot_arm_speed * normalize_vector(robot_arm_to_pick_object)
         scene.move_robot_arm(dx=action[0], dy=action[1], dz=action[2])
