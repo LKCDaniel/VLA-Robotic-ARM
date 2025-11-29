@@ -1,4 +1,10 @@
 import numpy as np
+import json
+
+
+def read_json(p):
+    with open(p, "r") as f:
+        return json.load(f)
 
 
 def compute_normal_component(base_vector, vector):

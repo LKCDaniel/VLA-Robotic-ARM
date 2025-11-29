@@ -67,7 +67,7 @@ def record_episode(episode_save_dir, scene):
 
 
 def main():
-    for episode_index in range(1, 300):
+    for episode_index in range(245, 300):
         init_object_x = random.uniform(-4, 4)
         init_object_y = random.uniform(-4, 4)
         scene = SimScene(object_init_x=init_object_x, object_init_y=init_object_y)

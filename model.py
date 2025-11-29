@@ -117,36 +117,19 @@ class VisionActionModel(nn.Module):
         action = self.action_predictor(f)
         catch_state = self.catch_state_predictor(f)
         task_state = self.task_state_predictor(f)
-        return action, catch_state, task_state
+        return torch.concatenate([action, catch_state, task_state], dim=-1)
 
 
-def main1():
-    device = "cuda"
-    model = ResNet()
-    model = model.to(device)
-    input_tensor = torch.randn(1, 3, 512, 512).to(device)
-    with torch.no_grad():
-        output = model(input_tensor)
-        print(output.shape)
-
-
-def main2():
-    device = "cuda"
-    model = MLP(512, 32, 5, 4)
-    model = model.to(device)
-    input_tensor = torch.randn(13, 512).to(device)
-    with torch.no_grad():
-        output = model(input_tensor)
-        print(output.shape)
-
-
-if __name__ == '__main__':
+def main():
     device = "cuda"
     model = VisionActionModel()
     model = model.to(device)
     img1 = torch.randn(13, 3, 512, 512).to(device)
     img2 = torch.randn(13, 3, 512, 512).to(device)
     state = torch.randn(13, 5).to(device)
-    action, catch_state, task_state = model(img1, img2, state)
-    print(action.shape, catch_state.shape, task_state.shape)
-    print(catch_state, task_state)
+    next_state = model(img1, img2, state)
+    print(next_state.shape)
+
+
+if __name__ == '__main__':
+    main()
