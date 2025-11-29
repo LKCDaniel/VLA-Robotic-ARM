@@ -34,14 +34,15 @@ def train():
                             ncols=100)
 
         total_loss = 0
-        for i, (img1, img2, current_state, next_state_gt) in progress_bar:
+        for i, (img1, img2, img3, current_state, next_state_gt) in progress_bar:
             img1 = img1.to(device)
             img2 = img2.to(device)
+            img3 = img3.to(device)
             current_state = current_state.to(device)
             next_state_gt = next_state_gt.to(device)
 
             optimizer.zero_grad()
-            next_state_pd = model(img1, img2, current_state)
+            next_state_pd = model(img1, img2, img3, current_state)
             loss = nn.L1Loss()(next_state_pd, next_state_gt)
             loss.backward()
             optimizer.step()

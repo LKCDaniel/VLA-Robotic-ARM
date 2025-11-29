@@ -11,6 +11,7 @@ class PickPlaceDataset(Dataset):
 
         self.img1 = data["img1"]
         self.img2 = data["img2"]
+        self.img3 = data["img3"]
 
         self.current_state = np.array(data["current_state"], dtype=np.float32)
         self.next_state = np.array(data["next_state"], dtype=np.float32)
@@ -38,6 +39,7 @@ class PickPlaceDataset(Dataset):
     def __getitem__(self, index):
         return (self.normalize_image(self.img1[index]),
                 self.normalize_image(self.img2[index]),
+                self.normalize_image(self.img3[index]),
                 self.current_state[index],
                 self.next_state[index])
 
