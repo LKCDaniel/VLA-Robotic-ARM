@@ -42,6 +42,10 @@ class PickPlaceDataset(Dataset):
         return img.astype(np.float32)
 
     def save_state(self, stat_path):
+        print("state_min", self.state_min)
+        print("state_max", self.state_max)
+        print("action_min", self.action_min)
+        print("action_max", self.action_max)
         np.savez(stat_path,
                  state_min=self.state_min,
                  state_max=self.state_max,

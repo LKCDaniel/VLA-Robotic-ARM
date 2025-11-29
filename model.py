@@ -6,7 +6,7 @@ class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.layer1 = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=2, padding=1, bias=False),
+            nn.Conv2d(in_channels, out_channels, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(out_channels)
         )
 
@@ -16,7 +16,7 @@ class ResidualBlock(nn.Module):
         )
 
         self.shortcut = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=2, bias=False),
+            nn.Conv2d(in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=False),
             nn.BatchNorm2d(out_channels)  # 加上这行
         )
 
@@ -26,7 +26,7 @@ class ResidualBlock(nn.Module):
         out = self.layer1(x)
         out = self.relu(out)
         out = self.layer2(out)
-        out += self.shortcut(x)
+        out = out + self.shortcut(x)
         out = self.relu(out)
         return out
 
@@ -34,22 +34,12 @@ class ResidualBlock(nn.Module):
 class ResNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=6, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(3, 16, kernel_size=4, stride=2, padding=1, bias=False)
         self.stage1 = ResidualBlock(16, 32)
         self.stage2 = ResidualBlock(32, 64)
         self.stage3 = ResidualBlock(64, 128)
         self.stage4 = ResidualBlock(128, 32)
         self.pooling = nn.AdaptiveAvgPool2d((1, 1))
-
-        self._initialize_weights()
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         # 初始层
@@ -101,17 +91,19 @@ class MLP(nn.Module):
 class VisionActionModel(nn.Module):
     def __init__(self):
         super().__init__()
-        self.image_encoder1 = ResNet()
-        self.image_encoder2 = ResNet()
-        self.feature_projector = nn.Linear(69, 16)
-        self.feature_fuser = MLP(in_dim=16, h_dim=64, num_layers=4)
-        self.action_predictor = nn.Sequential(nn.Linear(16, 5), nn.Tanh())
+        self.image_encoder = ResNet()
+        self.feature_projector = nn.Linear(32 * 2 + 5, 16)
+        self.feature_fuser = MLP(in_dim=16, h_dim=32, num_layers=2)
+        self.action_predictor = nn.Sequential(nn.Linear(16, 3), nn.Tanh())
+        self.state_predictor = nn.Linear(16, 2)
 
     def forward(self, img1, img2, state):
-        f1 = self.image_encoder1(img1)
-        f2 = self.image_encoder2(img2)
+        f1 = self.image_encoder(img1)
+        f2 = self.image_encoder(img2)
         f = torch.concatenate([f1, f2, state], dim=-1)
         f = self.feature_projector(f)
         f = self.feature_fuser(f)
         action = self.action_predictor(f)
-        return action
+        next_state = self.state_predictor(f)
+        out = torch.concatenate([action, next_state], dim=-1)
+        return out
