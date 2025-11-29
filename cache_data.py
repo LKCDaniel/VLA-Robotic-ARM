@@ -4,12 +4,10 @@ from util import read_json, save_json
 
 img1_list = []
 img2_list = []
-state_list = []
-action_list = []
-catch_state_list = []
-task_state_list = []
+current_state_list = []
+next_state_list = []
 
-for episode_index in trange(400):
+for episode_index in trange(500):
     state_path = f"episodes/episode_{episode_index}/robot_state.json"
     states = read_json(state_path)["robot_arm_state"]
     num_frames = len(states)
@@ -18,23 +16,21 @@ for episode_index in trange(400):
         img2_path = f"episodes/episode_{episode_index}/camera_2/{frame_index}.png"
         img1_list.append(img1_path)
         img2_list.append(img2_path)
-        state = states[frame_index]
-        state_list.append(state)
+        current_state = states[frame_index]
+        current_state_list.append(current_state)
         next_state = states[frame_index + 1]
-        action = [next_state[i] - state[i] for i in range(3)]
-        action_list.append(action)
-        catch_state = next_state[3]
-        task_state = next_state[4]
-        catch_state_list.append(catch_state)
-        task_state_list.append(task_state)
+        next_state_list.append(next_state)
+
+state_min = np.min(np.array(current_state_list)[:, :3], axis=0).tolist()
+state_max = np.max(np.array(current_state_list)[:, :3], axis=0).tolist()
 
 data = {
     "img1": img1_list,
     "img2": img2_list,
-    "state": state_list,
-    "action": action_list,
-    "catch_state": catch_state_list,
-    "task_state": task_state_list
+    "current_state": current_state_list,
+    "next_state": next_state_list,
+    "state_min": state_min,
+    "state_max": state_max
 }
 
 save_json(data, "train_data.json")

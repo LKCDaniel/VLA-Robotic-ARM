@@ -4,7 +4,7 @@ import random
 import torch
 import cv2
 import numpy as np
-from util import normalize_vector
+from util import read_json
 from scene import SimScene
 from model import VisionActionModel
 
@@ -17,9 +17,9 @@ def normalize_image(img, device):
 
 
 @torch.inference_mode()
-def inference(episode_save_dir, scene, model, device, action_min, action_max):
-    action_min = torch.tensor(action_min, dtype=torch.float32, device=device)
-    action_max = torch.tensor(action_max, dtype=torch.float32, device=device)
+def inference(episode_save_dir, scene, model, device, state_min, state_max):
+    state_min = np.array(state_min, dtype=np.float32)
+    state_max = np.array(state_max, dtype=np.float32)
 
     os.makedirs(os.path.join(episode_save_dir, "camera_1"), exist_ok=True)
     os.makedirs(os.path.join(episode_save_dir, "camera_2"), exist_ok=True)
@@ -47,15 +47,14 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
         img2 = normalize_image(img2, device)
         img2 = torch.unsqueeze(img2, dim=0)
 
-        action, next_catch_state, next_task_state = model(img1, img2, state)
-        action = (action * 0.5 + 0.5) * (action_max - action_min) + action_min
-        action = action.squeeze(0).cpu().numpy().tolist()
-        next_catch_state = round(catch_state.reshape(-1).cpu().numpy().item())
-        next_task_state = round(task_state.reshape(-1).cpu().numpy().item())
+        next_state = model(img1, img2, state).cpu().numpy().reshape(-1)
+        next_pos = 0.5 * (next_state[:3] + 1) * (state_max - state_min) + state_min
+        next_catch_state = round(next_state[3].item())
+        next_task_state = round(next_state[4].item())
 
-        scene.move_robot_arm(dx=action[0], dy=action[1], dz=action[2])
-        if catch_state == 1:
-            scene.move_object(dx=action[0], dy=action[1], dz=action[2])
+        scene.set_robot_arm_location(x=next_pos[0], y=next_pos[1], z=next_pos[2])
+        # if catch_state == 1:
+        #     scene.move_object(dx=action[0], dy=action[1], dz=action[2])
         frame_count += 1
 
         catch_state = next_catch_state
@@ -73,10 +72,10 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
 
 
 def main():
-    stat_path = "stat.npz"
-    stat = np.load(stat_path, allow_pickle=True)
-    action_min = stat["action_min"]
-    action_max = stat["action_max"]
+    stat_path = "train_data.json"
+    data = read_json(stat_path)
+    state_min = data["state_min"]
+    state_max = data["state_max"]
     device = "cuda"
     model = VisionActionModel().to(device)
     model.eval()
@@ -84,7 +83,7 @@ def main():
     init_object_y = random.uniform(-4, 4)
     scene = SimScene(object_init_x=init_object_x, object_init_y=init_object_y)
     episode_save_dir = os.path.join(os.path.dirname(__file__), "real_time_test")
-    inference(episode_save_dir, scene, model, device, action_min, action_max)
+    inference(episode_save_dir, scene, model, device, state_min, state_max)
 
 
 if __name__ == "__main__":

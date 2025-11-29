@@ -7,7 +7,7 @@ from util import read_json
 def main():
     xs = []
     ys = []
-    for episode_index in trange(300):
+    for episode_index in trange(500):
         data_path = os.path.join(os.path.dirname(__file__), "episodes", f"episode_{episode_index}", "robot_state.json")
         data = read_json(data_path)
         x = data["object_init_x"]

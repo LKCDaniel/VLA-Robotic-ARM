@@ -34,11 +34,11 @@ class ResidualBlock(nn.Module):
 class ResNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=4, stride=2, padding=1, bias=False)
-        self.stage1 = ResidualBlock(16, 32)
-        self.stage2 = ResidualBlock(32, 64)
-        self.stage3 = ResidualBlock(64, 128)
-        self.stage4 = ResidualBlock(128, 64)
+        self.conv1 = nn.Conv2d(6, 8, kernel_size=4, stride=2, padding=1, bias=False)
+        self.stage1 = ResidualBlock(8, 16)
+        self.stage2 = ResidualBlock(16, 32)
+        self.stage3 = ResidualBlock(32, 64)
+        self.stage4 = ResidualBlock(64, 32)
         self.pooling = nn.AdaptiveAvgPool2d((1, 1))
 
     def forward(self, x):
@@ -91,21 +91,22 @@ class MLP(nn.Module):
 class VisionActionModel(nn.Module):
     def __init__(self):
         super().__init__()
-        d_model = 32
+        d_model = 16
         self.image_encoder = ResNet()
-        self.feature_projector = nn.Linear(64 * 2 + 5, d_model)
-        self.feature_fuser = MLP(in_dim=d_model, h_dim=d_model*4, num_layers=3)
-        self.action_predictor = nn.Sequential(nn.Linear(d_model, 3), nn.Tanh())
-        self.catch_state_predictor = nn.Sequential(nn.Linear(d_model, 1), nn.Sigmoid())
-        self.task_state_predictor = nn.Sequential(nn.Linear(d_model, 1), nn.Sigmoid())
+        self.feature_projector = nn.Linear(32 + 5, d_model)
+        self.feature_fuser = MLP(in_dim=d_model, h_dim=d_model*2, num_layers=2)
+        self.next_position_predictor = nn.Sequential(nn.Linear(d_model, 3), nn.Tanh())
+        self.next_catch_predictor = nn.Sequential(nn.Linear(d_model, 1), nn.Sigmoid())
+        self.next_task_predictor = nn.Sequential(nn.Linear(d_model, 1), nn.Sigmoid())
 
     def forward(self, img1, img2, state):
-        f1 = self.image_encoder(img1)
-        f2 = self.image_encoder(img2)
-        f = torch.concatenate([f1, f2, state], dim=-1)
+        img = torch.concatenate([img1, img2], dim=1)
+        f = self.image_encoder(img)
+        f = torch.concatenate([f, state], dim=-1)
         f = self.feature_projector(f)
         f = self.feature_fuser(f)
-        action = self.action_predictor(f)
-        catch_state = self.catch_state_predictor(f)
-        task_state = self.task_state_predictor(f)
-        return action, catch_state, task_state
+        next_position = self.next_position_predictor(f)
+        next_catch = self.next_catch_predictor(f)
+        next_task = self.next_task_predictor(f)
+        next_state = torch.concatenate([next_position, next_catch, next_task], dim=-1)
+        return next_state
