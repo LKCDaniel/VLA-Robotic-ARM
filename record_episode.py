@@ -12,12 +12,10 @@ def record_episode(episode_save_dir, scene):
     os.makedirs(os.path.join(episode_save_dir, "camera_1"), exist_ok=True)
     os.makedirs(os.path.join(episode_save_dir, "camera_2"), exist_ok=True)
     os.makedirs(os.path.join(episode_save_dir, "camera_3"), exist_ok=True)
-    robot_arm_state_record = []
+    robot_arm_position_list = []
 
     frame_count = 0
 
-    catch_state = 0  # 1 for catching, 0 for not catching
-    task_state = 0  # 1 for complete, 0 for not complete
     while True:
         robot_arm_to_pick_object = scene.robot_arm_to_pick_object()
         if np.linalg.norm(robot_arm_to_pick_object) < ROBOT_ARM_SPEED:
@@ -29,16 +27,15 @@ def record_episode(episode_save_dir, scene):
         scene.shot_2(save_path_2)
         save_path_3 = os.path.join(episode_save_dir, "camera_3", f"{frame_count}.png")
         scene.shot_3(save_path_3)
-        robot_arm_state = list(scene.robot_arm.location)
-        robot_arm_state.append(catch_state)
-        robot_arm_state.append(task_state)
-        robot_arm_state_record.append(robot_arm_state)
+
+        robot_arm_position_list.append(list(scene.robot_arm.location))
 
         action = ROBOT_ARM_SPEED * normalize_vector(robot_arm_to_pick_object)
         scene.move_robot_arm(dx=action[0], dy=action[1], dz=action[2])
         frame_count += 1
 
-    catch_state = 1
+    catch_frame = frame_count
+
     while True:
         robot_arm_to_place_object = scene.robot_arm_to_place_object()
         if np.linalg.norm(robot_arm_to_place_object) < ROBOT_ARM_SPEED:
@@ -50,24 +47,25 @@ def record_episode(episode_save_dir, scene):
         scene.shot_2(save_path_2)
         save_path_3 = os.path.join(episode_save_dir, "camera_3", f"{frame_count}.png")
         scene.shot_3(save_path_3)
-        robot_arm_state = list(scene.robot_arm.location)
-        robot_arm_state.append(catch_state)
-        robot_arm_state.append(task_state)
-        robot_arm_state_record.append(robot_arm_state)
+
+        robot_arm_position_list.append(list(scene.robot_arm.location))
 
         action = ROBOT_ARM_SPEED * normalize_vector(robot_arm_to_place_object)
         scene.move_robot_arm(dx=action[0], dy=action[1], dz=action[2])
         scene.move_object(dx=action[0], dy=action[1], dz=action[2])
         frame_count += 1
 
-    robot_arm_state_record[-1][-1] = 1
+    task_frame = frame_count - 1
+    robot_arm_position_list[-1][-1] = 1
     data = {
-        "robot_arm_state": robot_arm_state_record,
+        "robot_arm_position": robot_arm_position_list,
         "object_init_x": scene.object_init_x,
         "object_init_y": scene.object_init_y,
         "robot_arm_init_x": scene.robot_arm_init_x,
         "robot_arm_init_y": scene.robot_arm_init_y,
-        "robot_arm_init_z": scene.robot_arm_init_z
+        "robot_arm_init_z": scene.robot_arm_init_z,
+        "catch_frame": catch_frame,
+        "task_frame": task_frame
     }
 
     state_save_path = os.path.join(episode_save_dir, "robot_state.json")

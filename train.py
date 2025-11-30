@@ -30,8 +30,8 @@ def train():
     num_epochs = 50
     learning_rate = 1e-3
     checkpoint_pth = "checkpoint.pth"
-    save_every = 400
-    validate_every = 200
+    save_every = 600
+    validate_every = 300
 
     model = VisionActionModel().to(device)
     model.train()
