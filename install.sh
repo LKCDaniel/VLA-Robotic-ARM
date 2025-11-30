@@ -6,3 +6,7 @@ pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu12
 pip install bpy-4.5.1-cp311-cp311-win_amd64.whl
 # or directly install as follows
 # pip install bpy==4.5.1 --extra-index-url https://download.blender.org/pypi/
+
+ffmpeg -i real_time_test/camera_1.mp4 -vf "fps=30,scale=512:-1:flags=lanczos" -loop 0 real_time_test/camera_1.gif
+ffmpeg -i real_time_test/camera_2.mp4 -vf "fps=30,scale=512:-1:flags=lanczos" -loop 0 real_time_test/camera_2.gif
+ffmpeg -i real_time_test/camera_3.mp4 -vf "fps=30,scale=512:-1:flags=lanczos" -loop 0 real_time_test/camera_3.gif
