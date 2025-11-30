@@ -72,8 +72,8 @@ def record_episode(episode_save_dir, scene):
     save_json(data, state_save_path)
 
 
-def main():
-    for episode_index in range(4, 1000):
+def generate_episodes(num_episodes, resolution):
+    for episode_index in range(num_episodes):
         object_init_x = FLOOR_SIZE * 0.5 * random.uniform(-1, 1)
         object_init_y = FLOOR_SIZE * 0.5 * random.uniform(-1, 1)
         robot_arm_init_x = FLOOR_SIZE * 0.5 * random.uniform(-1, 1)
@@ -90,7 +90,7 @@ def main():
         bg_g = 1.0
         bg_b = 1.0
         bg_density = 0.2
-        scene = SimScene(resolution=128, object_init_x=object_init_x, object_init_y=object_init_y,
+        scene = SimScene(resolution=resolution, object_init_x=object_init_x, object_init_y=object_init_y,
                          robot_arm_init_x=robot_arm_init_x,
                          robot_arm_init_y=robot_arm_init_y,
                          robot_arm_init_z=robot_arm_init_z,
@@ -101,4 +101,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description="prepare dataset")
+    parser.add_argument("--num_episodes", type=int, required=True, default=500)
+    parser.add_argument("--resolution", type=int, required=True, default=128)
+
+    args = parser.parse_args()
+    generate_episodes(num_episodes=args.num_episodes, resolution=args.resolution)
