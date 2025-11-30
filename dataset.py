@@ -2,10 +2,11 @@ import cv2
 import numpy as np
 from torch.utils.data import Dataset
 from util import read_json
+from macro import ROBOT_ARM_SPEED
 
 
 class PickPlaceDataset(Dataset):
-    def __init__(self, json_path, stat_path):
+    def __init__(self, json_path):
         super().__init__()
         data = read_json(json_path)
 
@@ -14,17 +15,18 @@ class PickPlaceDataset(Dataset):
         self.img3 = data["img3"]
 
         self.current_state = np.array(data["current_state"], dtype=np.float32)
-        self.next_state = np.array(data["next_state"], dtype=np.float32)
-        self.state_min = np.array(data["state_min"], dtype=np.float32)
-        self.state_max = np.array(data["state_max"], dtype=np.float32)
-        self.normalize_next_state()
+        self.action = np.array(data["action"], dtype=np.float32)
+        self.action_min = np.array(data["action_min"], dtype=np.float32)
+        self.action_max = np.array(data["action_max"], dtype=np.float32)
+        self.normalize_action()
 
         self.length = self.current_state.shape[0]
 
-    def normalize_next_state(self):
-        state_min = self.state_min.reshape(1, -1)
-        state_max = self.state_max.reshape(1, -1)
-        self.next_state[:, :3] = (self.next_state[:, :3] - state_min) / (state_max - state_min) * 2 - 1
+    def normalize_action(self):
+        # action_min = self.action_min.reshape(1, -1)
+        # action_max = self.action_max.reshape(1, -1)
+        self.action[:, :3] = self.action[:, :3] / ROBOT_ARM_SPEED
+        # self.action[:, :3] = (self.action[:, :3] - action_min) / (action_max - action_min) * 2 - 1
 
     def __len__(self):
         return self.length
@@ -41,5 +43,5 @@ class PickPlaceDataset(Dataset):
                 self.normalize_image(self.img2[index]),
                 self.normalize_image(self.img3[index]),
                 self.current_state[index],
-                self.next_state[index])
+                self.action[index])
 

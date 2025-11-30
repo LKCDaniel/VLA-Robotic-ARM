@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class ResidualBlock(nn.Module):
@@ -95,7 +96,7 @@ class VisionActionModel(nn.Module):
         self.image_encoder = ResNet()
         self.feature_projector = nn.Linear(32 * 3 + 5, d_model)
         self.feature_fuser = MLP(in_dim=d_model, h_dim=d_model*2, num_layers=2)
-        self.next_position_predictor = nn.Sequential(nn.Linear(d_model, 3), nn.Tanh())
+        self.position_delta_predictor = nn.Sequential(nn.Linear(d_model, 3), nn.Tanh())
         self.next_catch_predictor = nn.Sequential(nn.Linear(d_model, 1), nn.Sigmoid())
         self.next_task_predictor = nn.Sequential(nn.Linear(d_model, 1), nn.Sigmoid())
 
@@ -106,8 +107,9 @@ class VisionActionModel(nn.Module):
         f = torch.concatenate([f1, f2, f3, state], dim=-1)
         f = self.feature_projector(f)
         f = self.feature_fuser(f)
-        next_position = self.next_position_predictor(f)
+        position_delta = self.position_delta_predictor(f)
+        position_delta = F.normalize(position_delta, p=2, dim=1)
         next_catch = self.next_catch_predictor(f)
         next_task = self.next_task_predictor(f)
-        next_state = torch.concatenate([next_position, next_catch, next_task], dim=-1)
+        next_state = torch.concatenate([position_delta, next_catch, next_task], dim=-1)
         return next_state

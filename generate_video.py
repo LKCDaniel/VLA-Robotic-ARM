@@ -26,7 +26,7 @@ def images_to_video(image_dir, output_path):
 
 
 def main():
-    for episode_index in trange(508):
+    for episode_index in trange(400):
         episode_save_dir = os.path.join(os.path.dirname(__file__), "episodes", f"episode_{episode_index}")
 
         camera_1_dir = os.path.join(episode_save_dir, "camera_1")

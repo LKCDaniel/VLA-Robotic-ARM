@@ -4,7 +4,7 @@ import random
 from scene import SimScene
 import numpy as np
 from util import normalize_vector, save_json
-from macro import FLOOR_SIZE, ROBOT_ARM_HEIGHT
+from macro import FLOOR_SIZE, ROBOT_ARM_HEIGHT, ROBOT_ARM_SPEED
 import math
 
 
@@ -12,7 +12,6 @@ def record_episode(episode_save_dir, scene):
     os.makedirs(os.path.join(episode_save_dir, "camera_1"), exist_ok=True)
     os.makedirs(os.path.join(episode_save_dir, "camera_2"), exist_ok=True)
     os.makedirs(os.path.join(episode_save_dir, "camera_3"), exist_ok=True)
-    robot_arm_speed = 0.15
     robot_arm_state_record = []
 
     frame_count = 0
@@ -21,7 +20,7 @@ def record_episode(episode_save_dir, scene):
     task_state = 0  # 1 for complete, 0 for not complete
     while True:
         robot_arm_to_pick_object = scene.robot_arm_to_pick_object()
-        if np.linalg.norm(robot_arm_to_pick_object) < robot_arm_speed:
+        if np.linalg.norm(robot_arm_to_pick_object) < ROBOT_ARM_SPEED:
             break
 
         save_path_1 = os.path.join(episode_save_dir, "camera_1", f"{frame_count}.png")
@@ -35,14 +34,14 @@ def record_episode(episode_save_dir, scene):
         robot_arm_state.append(task_state)
         robot_arm_state_record.append(robot_arm_state)
 
-        action = robot_arm_speed * normalize_vector(robot_arm_to_pick_object)
+        action = ROBOT_ARM_SPEED * normalize_vector(robot_arm_to_pick_object)
         scene.move_robot_arm(dx=action[0], dy=action[1], dz=action[2])
         frame_count += 1
 
     catch_state = 1
     while True:
         robot_arm_to_place_object = scene.robot_arm_to_place_object()
-        if np.linalg.norm(robot_arm_to_place_object) < robot_arm_speed:
+        if np.linalg.norm(robot_arm_to_place_object) < ROBOT_ARM_SPEED:
             break
 
         save_path_1 = os.path.join(episode_save_dir, "camera_1", f"{frame_count}.png")
@@ -56,7 +55,7 @@ def record_episode(episode_save_dir, scene):
         robot_arm_state.append(task_state)
         robot_arm_state_record.append(robot_arm_state)
 
-        action = robot_arm_speed * normalize_vector(robot_arm_to_place_object)
+        action = ROBOT_ARM_SPEED * normalize_vector(robot_arm_to_place_object)
         scene.move_robot_arm(dx=action[0], dy=action[1], dz=action[2])
         scene.move_object(dx=action[0], dy=action[1], dz=action[2])
         frame_count += 1
@@ -76,7 +75,7 @@ def record_episode(episode_save_dir, scene):
 
 
 def main():
-    for episode_index in range(1000):
+    for episode_index in range(4, 1000):
         object_init_x = FLOOR_SIZE * 0.5 * random.uniform(-1, 1)
         object_init_y = FLOOR_SIZE * 0.5 * random.uniform(-1, 1)
         robot_arm_init_x = FLOOR_SIZE * 0.5 * random.uniform(-1, 1)

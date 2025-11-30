@@ -13,7 +13,6 @@ def train():
     num_epochs = 50
     learning_rate = 1e-3
     checkpoint_pth = "checkpoint.pth"
-    stat_path = "stat.npz"
     save_every = 200
 
     model = VisionActionModel().to(device)
@@ -22,7 +21,7 @@ def train():
         model_state = torch.load(checkpoint_pth)
         model.load_state_dict(model_state)
 
-    dataset = PickPlaceDataset(json_path="train_data.json", stat_path=stat_path)
+    dataset = PickPlaceDataset(json_path="train_data.json")
     dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True, drop_last=False)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -34,16 +33,16 @@ def train():
                             ncols=100)
 
         total_loss = 0
-        for i, (img1, img2, img3, current_state, next_state_gt) in progress_bar:
+        for i, (img1, img2, img3, current_state, action_gt) in progress_bar:
             img1 = img1.to(device)
             img2 = img2.to(device)
             img3 = img3.to(device)
             current_state = current_state.to(device)
-            next_state_gt = next_state_gt.to(device)
+            action_gt = action_gt.to(device)
 
             optimizer.zero_grad()
-            next_state_pd = model(img1, img2, img3, current_state)
-            loss = nn.L1Loss()(next_state_pd, next_state_gt)
+            action_pd = model(img1, img2, img3, current_state)
+            loss = nn.L1Loss()(action_pd, action_gt)
             loss.backward()
             optimizer.step()
 
