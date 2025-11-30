@@ -133,9 +133,18 @@ class SimScene:
     def set_rendering(self, resolution):
         self.scene.render.engine = 'CYCLES'
 
+        prefs = bpy.context.preferences
+        cprefs = prefs.addons['cycles'].preferences
+        cprefs.refresh_devices()
+        cprefs.compute_device_type = 'OPTIX'
+        self.scene.cycles.device = 'GPU'
+
         self.scene.cycles.samples = 64
         self.scene.cycles.denoiser = 'OPTIX'
+        self.scene.cycles.use_denoising = True
         self.scene.view_layers["ViewLayer"].cycles.use_denoising = True
+        self.scene.cycles.denoiser = 'OPTIX'
+        self.scene.cycles.denoising_use_gpu = True
 
         self.scene.render.resolution_x = resolution
         self.scene.render.resolution_y = resolution

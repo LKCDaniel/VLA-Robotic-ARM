@@ -32,9 +32,7 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
     catch_state = 0  # 1 for catching, 0 for not catching
     task_state = 0  # 1 for complete, 0 for not complete
 
-    while (task_state == 0) and (frame_count < 20):
-        catch_state_record.append(catch_state)
-        task_state_record.append(task_state)
+    while (task_state == 0) and (frame_count < 200):
         state = list(scene.robot_arm.location)
         state.append(catch_state)
         state.append(task_state)
@@ -75,6 +73,9 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
         catch_state = next_catch_state
         task_state = next_task_state
 
+        catch_state_record.append(catch_state)
+        task_state_record.append(task_state)
+
     data = {
         "catch_state": catch_state_record,
         "task_state": task_state_record,
@@ -86,6 +87,7 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
     }
 
     state_save_path = os.path.join(episode_save_dir, "robot_state.json")
+    print(catch_state, task_state, frame_count)
     with open(state_save_path, "w") as f:
         json.dump(data, f)
 
