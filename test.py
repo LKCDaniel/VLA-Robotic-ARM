@@ -31,7 +31,7 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
     catch_state = 0  # 1 for catching, 0 for not catching
     task_state = 0  # 1 for complete, 0 for not complete
 
-    while (task_state == 0) or (frame_count < 300):
+    while (task_state == 0) and (frame_count < 300):
         catch_state_record.append(catch_state)
         task_state_record.append(task_state)
         state = list(scene.robot_arm.location)
