@@ -3,6 +3,7 @@ import os
 import torch
 import cv2
 import math
+import random
 import numpy as np
 from util import read_json
 from scene import SimScene
@@ -19,8 +20,8 @@ def normalize_image(img, device):
 
 @torch.inference_mode()
 def inference(episode_save_dir, scene, model, device, action_min, action_max):
-    action_min = np.array(action_min, dtype=np.float32)
-    action_max = np.array(action_max, dtype=np.float32)
+    # action_min = np.array(action_min, dtype=np.float32)
+    # action_max = np.array(action_max, dtype=np.float32)
 
     os.makedirs(os.path.join(episode_save_dir, "camera_1"), exist_ok=True)
     os.makedirs(os.path.join(episode_save_dir, "camera_2"), exist_ok=True)
@@ -31,7 +32,7 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
     catch_state = 0  # 1 for catching, 0 for not catching
     task_state = 0  # 1 for complete, 0 for not complete
 
-    while (task_state == 0) and (frame_count < 300):
+    while (task_state == 0) and (frame_count < 20):
         catch_state_record.append(catch_state)
         task_state_record.append(task_state)
         state = list(scene.robot_arm.location)
@@ -42,26 +43,29 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
         save_path_1 = os.path.join(episode_save_dir, "camera_1", f"{frame_count}.png")
         scene.shot_1(save_path_1)
         img1 = cv2.imread(save_path_1)
+        img1 = cv2.resize(img1, (128, 128), interpolation=cv2.INTER_AREA)
         img1 = normalize_image(img1, device)
         img1 = torch.unsqueeze(img1, dim=0)
 
         save_path_2 = os.path.join(episode_save_dir, "camera_2", f"{frame_count}.png")
         scene.shot_2(save_path_2)
         img2 = cv2.imread(save_path_2)
+        img2 = cv2.resize(img2, (128, 128), interpolation=cv2.INTER_AREA)
         img2 = normalize_image(img2, device)
         img2 = torch.unsqueeze(img2, dim=0)
 
         save_path_3 = os.path.join(episode_save_dir, "camera_3", f"{frame_count}.png")
         scene.shot_3(save_path_3)
         img3 = cv2.imread(save_path_3)
+        img3 = cv2.resize(img3, (128, 128), interpolation=cv2.INTER_AREA)
         img3 = normalize_image(img3, device)
         img3 = torch.unsqueeze(img3, dim=0)
 
         action = model(img1, img2, img3, state).cpu().numpy().reshape(-1)
         # delta_pos = 0.5 * (action[:3] + 1) * (action_max - action_min) + action_min
         delta_pos = action[:3] * ROBOT_ARM_SPEED
-        next_catch_state = round(action[3].item())
-        next_task_state = round(action[4].item())
+        next_catch_state = 1 if action[3] > 0.3 else 0
+        next_task_state = 1 if action[4] > 0.7 else 0
 
         scene.move_robot_arm(dx=delta_pos[0], dy=delta_pos[1], dz=delta_pos[2])
         if catch_state == 1:
@@ -87,13 +91,13 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
 
 
 def main():
-    object_init_x = -2
-    object_init_y = -2
-    robot_arm_init_x = -4
-    robot_arm_init_y = -4
-    robot_arm_init_z = 6
-    sun_rx_radian = math.pi / 3
-    sun_ry_radian = 2 * math.pi / 3
+    object_init_x = 8 * random.uniform(-1, 1)
+    object_init_y = 8 * random.uniform(-1, 1)
+    robot_arm_init_x = 4 * random.uniform(-1, 1)
+    robot_arm_init_y = 4 * random.uniform(-1, 1)
+    robot_arm_init_z = random.uniform(6, 10)
+    sun_rx_radian = random.uniform(math.pi / 8, 7 * math.pi / 8)
+    sun_ry_radian = random.uniform(math.pi / 8, 7 * math.pi / 8)
     sun_density = 6.0
     bg_r = 1.0
     bg_g = 1.0
@@ -113,7 +117,7 @@ def main():
     model.load_state_dict(model_state)
     model.eval()
 
-    scene = SimScene(object_init_x=object_init_x, object_init_y=object_init_y,
+    scene = SimScene(resolution=512, object_init_x=object_init_x, object_init_y=object_init_y,
                      robot_arm_init_x=robot_arm_init_x,
                      robot_arm_init_y=robot_arm_init_y,
                      robot_arm_init_z=robot_arm_init_z,

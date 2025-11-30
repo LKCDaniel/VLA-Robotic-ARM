@@ -28,7 +28,7 @@ def train():
     device = "cuda"
     batch_size = 64
     num_epochs = 50
-    learning_rate = 1e-3
+    learning_rate = 1e-4
     checkpoint_pth = "checkpoint.pth"
     save_every = 600
     validate_every = 300

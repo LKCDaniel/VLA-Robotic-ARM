@@ -1,6 +1,7 @@
 import numpy as np
 from tqdm import trange
 from util import read_json, save_json
+from util import soft_state
 
 img1_list = []
 img2_list = []
@@ -8,7 +9,8 @@ img3_list = []
 current_state_list = []
 action_list = []
 
-for episode_index in trange(400):
+
+for episode_index in trange(450, 503):
     state_path = f"episodes/episode_{episode_index}/robot_state.json"
     data = read_json(state_path)
     position = data["robot_arm_position"]
@@ -24,13 +26,13 @@ for episode_index in trange(400):
         img3_list.append(img3_path)
 
         current_position = position[frame_index]
-        current_catch = 1 if (frame_index >= catch_frame - 2) else 0
-        current_task = 1 if (frame_index >= task_frame - 2) else 0
+        current_catch = soft_state(frame_index, catch_frame, frame_tolerance=5)
+        current_task = soft_state(frame_index, task_frame, frame_tolerance=5)
         current_state = [*current_position, current_catch, current_task]
 
         next_position = position[frame_index + 1]
-        next_catch = 1 if (frame_index + 1 >= catch_frame - 2) else 0
-        next_task = 1 if (frame_index + 1 >= task_frame - 2) else 0
+        next_catch = soft_state(frame_index + 1, catch_frame, frame_tolerance=5)
+        next_task = soft_state(frame_index + 2, task_frame, frame_tolerance=5)
 
         delta_x, delta_y, delta_z = (np.array(next_position) - np.array(current_position)).tolist()
 
@@ -51,4 +53,4 @@ data = {
     "action_max": action_max
 }
 
-save_json(data, "data_train.json")
+save_json(data, "data_validate.json")

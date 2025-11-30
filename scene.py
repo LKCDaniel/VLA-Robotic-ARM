@@ -10,7 +10,7 @@ def set_camera_lookat(camera, target: Vector):
 
 
 class SimScene:
-    def __init__(self, object_init_x, object_init_y,
+    def __init__(self, resolution, object_init_x, object_init_y,
                  robot_arm_init_x, robot_arm_init_y, robot_arm_init_z,
                  sun_rx_radian, sun_ry_radian, sun_density, bg_r, bg_g, bg_b, bg_density):
         self.clear_scene()
@@ -28,7 +28,7 @@ class SimScene:
         self.camera_1 = self.create_camera(camera_name="Camera1", camera_position=(35, 0, 20), camera_lookat=(0, 0, 5))
         self.camera_2 = self.create_camera(camera_name="Camera2", camera_position=(0, 35, 20), camera_lookat=(0, 0, 5))
         self.camera_3 = self.create_camera(camera_name="Camera2", camera_position=(0, 0, 35), camera_lookat=(0, 0, 0))
-        self.set_rendering()
+        self.set_rendering(resolution)
 
     @staticmethod
     def clear_scene():
@@ -130,15 +130,15 @@ class SimScene:
         self.scene.cycles.use_fast_gi = True
         self.scene.render.film_transparent = False
 
-    def set_rendering(self):
+    def set_rendering(self, resolution):
         self.scene.render.engine = 'CYCLES'
 
         self.scene.cycles.samples = 64
         self.scene.cycles.denoiser = 'OPTIX'
         self.scene.view_layers["ViewLayer"].cycles.use_denoising = True
 
-        self.scene.render.resolution_x = 128
-        self.scene.render.resolution_y = 128
+        self.scene.render.resolution_x = resolution
+        self.scene.render.resolution_y = resolution
         self.scene.render.image_settings.file_format = 'PNG'
 
     @staticmethod

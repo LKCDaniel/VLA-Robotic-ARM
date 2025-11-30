@@ -1,5 +1,6 @@
 import numpy as np
 import json
+import math
 
 
 def read_json(p):
@@ -25,3 +26,10 @@ def normalize_vector(vector):
 def compute_distance(pos1, pos2):
     distance = np.linalg.norm(pos2 - pos1)
     return distance
+
+
+def soft_state(current_frame, target_frame, frame_tolerance):
+    result = 1 + (current_frame - target_frame) / frame_tolerance
+    result = min(result, 1)
+    result = max(result, 0)
+    return result

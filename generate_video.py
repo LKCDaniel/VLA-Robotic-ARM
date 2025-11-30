@@ -26,20 +26,20 @@ def images_to_video(image_dir, output_path):
 
 
 def main():
-    for episode_index in trange(400):
-        episode_save_dir = os.path.join(os.path.dirname(__file__), "episodes", f"episode_{episode_index}")
+    # for episode_index in trange(400):
+    # episode_save_dir = os.path.join(os.path.dirname(__file__), "episodes", f"episode_{episode_index}")
+    episode_save_dir = os.path.join(os.path.dirname(__file__), "real_time_test")
+    camera_1_dir = os.path.join(episode_save_dir, "camera_1")
+    video_path_1 = os.path.join(episode_save_dir, "camera_1.mp4")
+    images_to_video(camera_1_dir, video_path_1)
 
-        camera_1_dir = os.path.join(episode_save_dir, "camera_1")
-        video_path_1 = os.path.join(episode_save_dir, "camera_1.mp4")
-        images_to_video(camera_1_dir, video_path_1)
+    camera_2_dir = os.path.join(episode_save_dir, "camera_2")
+    video_path_2 = os.path.join(episode_save_dir, "camera_2.mp4")
+    images_to_video(camera_2_dir, video_path_2)
 
-        camera_2_dir = os.path.join(episode_save_dir, "camera_2")
-        video_path_2 = os.path.join(episode_save_dir, "camera_2.mp4")
-        images_to_video(camera_2_dir, video_path_2)
-
-        camera_3_dir = os.path.join(episode_save_dir, "camera_3")
-        video_path_3 = os.path.join(episode_save_dir, "camera_3.mp4")
-        images_to_video(camera_3_dir, video_path_3)
+    camera_3_dir = os.path.join(episode_save_dir, "camera_3")
+    video_path_3 = os.path.join(episode_save_dir, "camera_3.mp4")
+    images_to_video(camera_3_dir, video_path_3)
 
 
 if __name__ == "__main__":

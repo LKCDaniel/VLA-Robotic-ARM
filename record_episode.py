@@ -90,7 +90,7 @@ def main():
         bg_g = 1.0
         bg_b = 1.0
         bg_density = 0.2
-        scene = SimScene(object_init_x=object_init_x, object_init_y=object_init_y,
+        scene = SimScene(resolution=128, object_init_x=object_init_x, object_init_y=object_init_y,
                          robot_arm_init_x=robot_arm_init_x,
                          robot_arm_init_y=robot_arm_init_y,
                          robot_arm_init_z=robot_arm_init_z,
