@@ -55,3 +55,6 @@ python generate_video.py
 ```
 
 ## Sample of online test data, from three cameras of different view
+![camera_1](real_time_test/camera_1.mp4)
+![camera_2](real_time_test/camera_2.mp4)
+![camera_3](real_time_test/camera_3.mp4)
