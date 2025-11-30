@@ -1,6 +1,5 @@
 import json
 import os
-import random
 import torch
 import cv2
 import math
@@ -25,13 +24,16 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
 
     os.makedirs(os.path.join(episode_save_dir, "camera_1"), exist_ok=True)
     os.makedirs(os.path.join(episode_save_dir, "camera_2"), exist_ok=True)
-    robot_arm_state_record = []
+    catch_state_record = []
+    task_state_record = []
 
     frame_count = 0
     catch_state = 0  # 1 for catching, 0 for not catching
     task_state = 0  # 1 for complete, 0 for not complete
 
-    while frame_count < 400:
+    while (task_state == 0) or (frame_count < 300):
+        catch_state_record.append(catch_state)
+        task_state_record.append(task_state)
         state = list(scene.robot_arm.location)
         state.append(catch_state)
         state.append(task_state)
@@ -62,17 +64,21 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
         next_task_state = round(action[4].item())
 
         scene.move_robot_arm(dx=delta_pos[0], dy=delta_pos[1], dz=delta_pos[2])
-        # if catch_state == 1:
-        #     scene.move_object(dx=action[0], dy=action[1], dz=action[2])
+        if catch_state == 1:
+            scene.move_object(dx=delta_pos[0], dy=delta_pos[1], dz=delta_pos[2])
         frame_count += 1
 
         catch_state = next_catch_state
         task_state = next_task_state
 
     data = {
-        "robot_arm_state": robot_arm_state_record,
+        "catch_state": catch_state_record,
+        "task_state": task_state_record,
         "object_init_x": scene.object_init_x,
-        "object_init_y": scene.object_init_y
+        "object_init_y": scene.object_init_y,
+        "robot_arm_init_x": scene.robot_arm_init_x,
+        "robot_arm_init_y": scene.robot_arm_init_y,
+        "robot_arm_init_z": scene.robot_arm_init_z
     }
 
     state_save_path = os.path.join(episode_save_dir, "robot_state.json")
@@ -81,13 +87,6 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
 
 
 def main():
-    stat_path = "train_data.json"
-    data = read_json(stat_path)
-    action_min = data["action_min"]
-    action_max = data["action_max"]
-    device = "cuda"
-    model = VisionActionModel().to(device)
-    model.eval()
     object_init_x = -2
     object_init_y = -2
     robot_arm_init_x = -4
@@ -100,6 +99,20 @@ def main():
     bg_g = 1.0
     bg_b = 1.0
     bg_density = 0.2
+
+    stat_path = "data_train.json"
+    data = read_json(stat_path)
+    action_min = data["action_min"]
+    action_max = data["action_max"]
+
+    device = "cuda"
+    model = VisionActionModel().to(device)
+    checkpoint_pth = "checkpoint.pth"
+    assert os.path.exists(checkpoint_pth)
+    model_state = torch.load(checkpoint_pth)
+    model.load_state_dict(model_state)
+    model.eval()
+
     scene = SimScene(object_init_x=object_init_x, object_init_y=object_init_y,
                      robot_arm_init_x=robot_arm_init_x,
                      robot_arm_init_y=robot_arm_init_y,

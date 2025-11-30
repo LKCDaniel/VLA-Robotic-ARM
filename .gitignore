@@ -8,4 +8,4 @@ real_time_test/
 *.png
 *.npz
 *.pth
-train_data.json
+*.json

@@ -41,4 +41,4 @@ data = {
     "action_max": action_max
 }
 
-save_json(data, "train_data.json")
+save_json(data, "data_train.json")

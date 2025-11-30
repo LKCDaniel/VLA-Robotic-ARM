@@ -6,9 +6,9 @@ from macro import ROBOT_ARM_SPEED
 
 
 class PickPlaceDataset(Dataset):
-    def __init__(self, json_path):
+    def __init__(self, data_path):
         super().__init__()
-        data = read_json(json_path)
+        data = read_json(data_path)
 
         self.img1 = data["img1"]
         self.img2 = data["img2"]
