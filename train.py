@@ -27,10 +27,10 @@ def validate(model, dataloader_validate, device):
 def train():
     device = "cuda"
     batch_size = 64
-    num_epochs = 50
+    num_epochs = 200
     learning_rate = 1e-4
     checkpoint_pth = "checkpoint.pth"
-    save_every = 600
+    save_every = 50 # 600 # debug
     validate_every = 300
 
     model = VisionActionModel().to(device)
@@ -38,6 +38,7 @@ def train():
     if os.path.exists(checkpoint_pth):
         model_state = torch.load(checkpoint_pth)
         model.load_state_dict(model_state)
+        print(f"Loaded model from {checkpoint_pth}")
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     dataset_train = PickPlaceDataset(data_path="data_train.json")
@@ -78,6 +79,7 @@ def train():
 
             if count > 0 and (count % save_every == 0):
                 torch.save(model.state_dict(), checkpoint_pth)
+                print(f"Saved model to {checkpoint_pth}")
 
             if count > 0 and (count % validate_every == 0):
                 validation_loss=validate(model, dataloader_validate, device)

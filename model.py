@@ -94,7 +94,7 @@ class VisionActionModel(nn.Module):
         super().__init__()
         d_model = 16
         self.image_encoder = ResNet()
-        self.feature_projector = nn.Linear(32 * 3 + 5, d_model)
+        self.feature_projector = nn.Linear(32 * 3 + 4, d_model)
         self.feature_fuser = MLP(in_dim=d_model, h_dim=d_model*2, num_layers=2)
         self.position_delta_predictor = nn.Sequential(nn.Linear(d_model, 3), nn.Tanh())
         self.next_catch_predictor = nn.Sequential(nn.Linear(d_model, 1), nn.Sigmoid())
@@ -109,7 +109,7 @@ class VisionActionModel(nn.Module):
         f = self.feature_fuser(f)
         position_delta = self.position_delta_predictor(f)
         position_delta = F.normalize(position_delta, p=2, dim=1)
-        next_catch = self.next_catch_predictor(f)
+        # next_catch = self.next_catch_predictor(f)
         next_task = self.next_task_predictor(f)
-        next_state = torch.concatenate([position_delta, next_catch, next_task], dim=-1)
+        next_state = torch.concatenate([position_delta, next_task], dim=-1)
         return next_state
