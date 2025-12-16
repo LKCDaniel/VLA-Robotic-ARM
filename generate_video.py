@@ -2,7 +2,6 @@ import os
 import cv2
 import argparse
 from tqdm import trange
-from macro import DEBUG_MODE
 
 
 def images_to_video(image_dir, output_path):
@@ -33,14 +32,13 @@ def main(episode_from, episode_to, is_real_time_test=False):
         episode_video_dir = os.path.join(os.path.dirname(__file__), "real_time_test", "videos")
         os.makedirs(episode_video_dir, exist_ok=True)
         
-        if not DEBUG_MODE: # debug
-            camera_1_dir = os.path.join(episode_image_dir, "camera_1")
-            video_path_1 = os.path.join(episode_video_dir, "camera_1.mp4")
-            images_to_video(camera_1_dir, video_path_1)
+        camera_1_dir = os.path.join(episode_image_dir, "camera_1")
+        video_path_1 = os.path.join(episode_video_dir, "camera_1.mp4")
+        images_to_video(camera_1_dir, video_path_1)
 
-            camera_2_dir = os.path.join(episode_image_dir, "camera_2")
-            video_path_2 = os.path.join(episode_video_dir, "camera_2.mp4")
-            images_to_video(camera_2_dir, video_path_2)
+        camera_2_dir = os.path.join(episode_image_dir, "camera_2")
+        video_path_2 = os.path.join(episode_video_dir, "camera_2.mp4")
+        images_to_video(camera_2_dir, video_path_2)
 
         camera_3_dir = os.path.join(episode_image_dir, "camera_3")
         video_path_3 = os.path.join(episode_video_dir, "camera_3.mp4")
@@ -56,15 +54,14 @@ def main(episode_from, episode_to, is_real_time_test=False):
         episode_video_dir = os.path.join(os.path.dirname(__file__), "episodes", "videos", f"episode_{episode_index}")
         os.makedirs(episode_video_dir, exist_ok=True)
         
-        if not DEBUG_MODE: # debug
-            # episode_image_dir = os.path.join(os.path.dirname(__file__), "real_time_test")
-            camera_1_dir = os.path.join(episode_image_dir, "camera_1")
-            video_path_1 = os.path.join(episode_video_dir, "camera_1.mp4")
-            images_to_video(camera_1_dir, video_path_1)
+        # episode_image_dir = os.path.join(os.path.dirname(__file__), "real_time_test")
+        camera_1_dir = os.path.join(episode_image_dir, "camera_1")
+        video_path_1 = os.path.join(episode_video_dir, "camera_1.mp4")
+        images_to_video(camera_1_dir, video_path_1)
 
-            camera_2_dir = os.path.join(episode_image_dir, "camera_2")
-            video_path_2 = os.path.join(episode_video_dir, "camera_2.mp4")
-            images_to_video(camera_2_dir, video_path_2)
+        camera_2_dir = os.path.join(episode_image_dir, "camera_2")
+        video_path_2 = os.path.join(episode_video_dir, "camera_2.mp4")
+        images_to_video(camera_2_dir, video_path_2)
 
         camera_3_dir = os.path.join(episode_image_dir, "camera_3")
         video_path_3 = os.path.join(episode_video_dir, "camera_3.mp4")

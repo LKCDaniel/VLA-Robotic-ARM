@@ -9,6 +9,7 @@ from util import read_json
 from scene import SimScene
 from model import VisionActionModel
 from macro import FLOOR_SIZE, ROBOT_ARM_HEIGHT, ROBOT_ARM_SPEED, DEBUG_MODE
+import argparse
 
 
 def normalize_image(img, device):
@@ -96,24 +97,34 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
         json.dump(data, f)
 
 
-def main():
+def main(use_episode_init):
     # object_init_x = 8 * random.uniform(-1, 1)
     # object_init_y = 8 * random.uniform(-1, 1)
-    robot_arm_init_x = 4 * random.uniform(-1, 1)
-    robot_arm_init_y = 4 * random.uniform(-1, 1)
-    robot_arm_init_z = random.uniform(6, 10)
-    sun_rx_radian = random.uniform(math.pi / 8, 7 * math.pi / 8)
-    sun_ry_radian = random.uniform(math.pi / 8, 7 * math.pi / 8)
-    sun_density = 6.0
-    bg_r = 1.0
-    bg_g = 1.0
-    bg_b = 1.0
-    bg_density = 0.2
+    # robot_arm_init_x = 4 * random.uniform(-1, 1)
+    # robot_arm_init_y = 4 * random.uniform(-1, 1)
+    # robot_arm_init_z = random.uniform(6, 10)
+    if use_episode_init >= 0:
+        init_data = read_json(os.path.join(os.path.dirname(__file__), "episodes", f"episode_{use_episode_init}", "robot_state.json"))
+        sun_rx_radian = init_data["sun_rx_radian"]
+        sun_ry_radian = init_data["sun_ry_radian"]
+        sun_density = init_data["sun_density"]
+        bg_r = init_data["bg_r"]
+        bg_g = init_data["bg_g"]
+        bg_b = init_data["bg_b"]
+        bg_density = init_data["bg_density"]
+    else:
+        sun_rx_radian = random.uniform(math.pi / 8, 7 * math.pi / 8)
+        sun_ry_radian = random.uniform(math.pi / 8, 7 * math.pi / 8)
+        sun_density = 6.0
+        bg_r = 1.0
+        bg_g = 1.0
+        bg_b = 1.0
+        bg_density = 0.2
 
     stat_path = "data_train.json"
-    data = read_json(stat_path)
-    action_min = data["action_min"]
-    action_max = data["action_max"]
+    init_data = read_json(stat_path)
+    action_min = init_data["action_min"]
+    action_max = init_data["action_max"]
 
     device = "cuda"
     model = VisionActionModel().to(device)
@@ -129,7 +140,7 @@ def main():
     # debug
     if DEBUG_MODE:
         will_stick_free = True
-        free_angle_percentage = 0.15
+        free_angle_percentage = 0.6806
         
         
     scene = SimScene(resolution=512, board_init_x=0, board_init_y=0,
@@ -144,7 +155,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    
+    parser = argparse.ArgumentParser(description="test online inference")
+    parser.add_argument("--use_episode_init", type=int, default=-1, help="which episode to use, -1 for real time test")
+    args = parser.parse_args()
+    
+    main(args.use_episode_init)
+
+# python ./test_online.py --use_episode_init 0
 
 
 

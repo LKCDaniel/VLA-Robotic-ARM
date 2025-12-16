@@ -24,7 +24,7 @@ class SimScene:
                  robot_arm_init_x, robot_arm_init_y, robot_arm_init_z,
                  will_stick_free:bool, free_angle_percentage,
                  sun_rx_radian, sun_ry_radian, sun_density, bg_r, bg_g, bg_b, bg_density):
-        assert free_angle_percentage < 1 and free_angle_percentage >= 0.4, "free_angle_percentage must be within 1 and 0.08889"
+        assert free_angle_percentage < 1 and free_angle_percentage >= 0.4, "free_angle_percentage must be within 1 and 0.4"
         
         if DEBUG_MODE:
             print(f'parameters: will_stick_free={will_stick_free}, free_angle_percentage={free_angle_percentage}')
@@ -182,6 +182,7 @@ class SimScene:
 
     def _set_rendering(self, resolution):
         self.scene.render.engine = 'CYCLES'
+        self.scene.render.use_persistent_data = True
 
         prefs = bpy.context.preferences
         cprefs = prefs.addons['cycles'].preferences
@@ -281,7 +282,7 @@ class SimScene:
             self.stick.rotation_euler[2] += self.stick_angularV
 
             if self.stick_angularV == 0 and not self.is_stick_inplace():
-                self.stick_state = self.StickState.Stationary        
+                self.stick_state = self.StickState.Stationary
 
         return self.is_stick_inplace() 
     

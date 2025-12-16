@@ -8,7 +8,7 @@ from macro import FLOOR_SIZE, ROBOT_ARM_HEIGHT, ROBOT_ARM_SPEED, DEBUG_MODE
 import math
 
 
-def record_episode(episode_save_dir, scene):
+def record_episode(episode_save_dir, scene, data:dict={}):
     os.makedirs(os.path.join(episode_save_dir, "camera_1"), exist_ok=True)
     os.makedirs(os.path.join(episode_save_dir, "camera_2"), exist_ok=True)
     os.makedirs(os.path.join(episode_save_dir, "camera_3"), exist_ok=True)
@@ -18,13 +18,19 @@ def record_episode(episode_save_dir, scene):
     free_frame = -1
     # touching_list = []
     temp_variable = scene.will_stick_free
+    
+    # # debug
+    # import time
+    # print(f"\n{'='*20} DIAGNOSIS START {'='*20}")
 
     while True:
-        if not DEBUG_MODE: # debug
-            save_path_1 = os.path.join(episode_save_dir, "camera_1", f"{frame_count}.png")
-            scene.shot_1(save_path_1)
-            save_path_2 = os.path.join(episode_save_dir, "camera_2", f"{frame_count}.png")
-            scene.shot_2(save_path_2)
+        # # debug
+        # t0 = time.time()
+        
+        save_path_1 = os.path.join(episode_save_dir, "camera_1", f"{frame_count}.png")
+        scene.shot_1(save_path_1)
+        save_path_2 = os.path.join(episode_save_dir, "camera_2", f"{frame_count}.png")
+        scene.shot_2(save_path_2)
         save_path_3 = os.path.join(episode_save_dir, "camera_3", f"{frame_count}.png")
         scene.shot_3(save_path_3)
 
@@ -33,24 +39,23 @@ def record_episode(episode_save_dir, scene):
         if temp_variable and not scene.will_stick_free:
             free_frame = frame_count
             temp_variable = False
+        
+        # # debug
+        # t_cam1 = time.time() - t0
+        # t0 = time.time()
 
         action = scene.next_robot_arm_movement() * ROBOT_ARM_SPEED
         frame_count += 1
         if scene.update_frame(dx=action[0], dy=action[1], dz=action[2]):
             break
+        
+        # # debug
+        # t_sim = time.time() - t0
+        # print(f"Frame {frame_count}: [Cam1: {t_cam1:.3f}s, Sim: {t_sim:.3f}s]")
 
-    data = {
-        "robot_arm_position": robot_arm_position_list,
-        # "board_init_x": scene.board_init_x,
-        # "board_init_y": scene.board_init_y,
-        "robot_arm_init_x": scene.robot_arm_init_x,
-        "robot_arm_init_y": scene.robot_arm_init_y,
-        "robot_arm_init_z": scene.robot_arm_init_z,
-        "free_angle_percentage": (scene.free_angle_degrees-120) / 60,
-        "free_frame": free_frame, # -1 if never free
-        # "touching_list": touching_list,
-        "task_frame": frame_count
-    }
+    data["robot_arm_position"] = robot_arm_position_list
+    data["free_frame"] = free_frame # -1 if never free
+    data["task_frame"] = frame_count
 
     state_save_path = os.path.join(episode_save_dir, "robot_state.json")
     save_json(data, state_save_path)
@@ -93,9 +98,24 @@ def generate_episodes(episode_from, episode_to, resolution):
                          sun_rx_radian=sun_rx_radian, sun_ry_radian=sun_ry_radian, sun_density=sun_density,
                          bg_r=bg_r, bg_g=bg_g, bg_b=bg_b, bg_density=bg_density)
         
+        data = {
+            "sun_rx_radian": sun_rx_radian,
+            "sun_ry_radian": sun_ry_radian,
+            "sun_density": sun_density,
+            "bg_r": bg_r,
+            "bg_g": bg_g,
+            "bg_b": bg_b,
+            "bg_density": bg_density,
+            "board_init_x": scene.board_init_x,
+            "board_init_y": scene.board_init_y,
+            "robot_arm_init_x": scene.robot_arm_init_x,
+            "robot_arm_init_y": scene.robot_arm_init_y,
+            "robot_arm_init_z": scene.robot_arm_init_z,
+            "free_angle_percentage": (scene.free_angle_degrees-120) / 60
+        }
+        
         episode_save_dir = os.path.join(os.path.dirname(__file__), "episodes", f"episode_{episode_index}")
-        record_episode(episode_save_dir, scene)
-
+        record_episode(episode_save_dir, scene, data)
 
 if __name__ == "__main__":
     import argparse
@@ -107,7 +127,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     generate_episodes(episode_from=args.episode_from, episode_to=args.episode_to, resolution=args.resolution)
 
-# python record_episode.py --episode_from 0 --episode_to 1 --resolution 256
+# python record_episode.py --episode_from 1 --episode_to 2 --resolution 256
 
 
 
