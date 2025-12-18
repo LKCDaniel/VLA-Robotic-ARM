@@ -6,6 +6,7 @@ import random
 from macro import *
 from enum import Enum
 import os
+import torch
 import imageio
 
 
@@ -229,6 +230,15 @@ class SimScene:
         self.scene.camera = None
 
     def _move_robot_arm(self, dx, dy, dz):
+        # if the abs length > ROBOT_ARM_SPEED, clamp it
+        length = math.sqrt(dx*dx + dy*dy + dz*dz)
+        if length > ROBOT_ARM_SPEED and torch.allclose(torch.tensor([length]), torch.tensor([ROBOT_ARM_SPEED])) == False: # neglect rounding errors
+            scale = ROBOT_ARM_SPEED / length
+            dx *= scale
+            dy *= scale
+            dz *= scale
+            print(f"warning: movement clamped to ROBOT_ARM_SPEED, raw speed: {length}, clamped speed: {ROBOT_ARM_SPEED}")
+        
         self.robot_arm.location[0] += dx
         self.robot_arm.location[1] += dy
         self.robot_arm.location[2] += dz        
@@ -253,23 +263,29 @@ class SimScene:
         return 0.
 
     # return true if the stick is in place, else false. Also make movements of course
-    def update_frame(self, dx, dy, dz) -> bool:
+    def update_frame(self, dx, dy, dz): # -> bool:
         self._move_robot_arm(dx, dy, dz)
         
         if DEBUG_MODE:
             print(f'will be free: {self.will_stick_free}, stick state: {self.stick_state}, robot arm state: {self.robot_arm_state}, robot arm pos: {self.robot_arm.location}, stick angle: {degrees(self.stick.rotation_euler[2])}')
         
         if self.stick_state == self.StickState.Stationary:
-            pass
+            local_angle = self._local_arm_angle()
+            if (local_angle + self.thickness_angle)%(2*math.pi) > self.stick.rotation_euler[2]%(2*math.pi) and self.robot_arm.location[2] < 0.8682: # 0.15/sin(10 degrees) height
+                self.stick.rotation_euler[2] = local_angle + self.thickness_angle
+                self.stick_state = self.StickState.Touched
         
         elif self.stick_state == self.StickState.Touched:
             self.stick.rotation_euler[2] = self._local_arm_angle() + self.thickness_angle
-            if self.will_stick_free and degrees(self.stick.rotation_euler[2]) >= self.free_angle_degrees:
+            if self.robot_arm.location[2] > 0.8682:
+                self.stick_state = self.StickState.Free
+                
+            elif self.will_stick_free and degrees(self.stick.rotation_euler[2]) >= self.free_angle_degrees:
+                self.stick.rotation_euler[2] = math.radians(self.free_angle_degrees - self.thickness_angle)
                 self.stick_state = self.StickState.Free
                 self.will_stick_free = False
 
         else: # Free state
-            self.robot_arm_state = self.RobotArmState.Upward
             self.stick_angularA = (radians(120) - self.stick.rotation_euler[2]) / (math.pi*2/6) * 0.25 # elastic force
             self.stick_angularV += self.stick_angularA
             # damping
@@ -284,7 +300,7 @@ class SimScene:
             if self.stick_angularV == 0 and not self.is_stick_inplace():
                 self.stick_state = self.StickState.Stationary
 
-        return self.is_stick_inplace() 
+        # return self.is_stick_inplace() 
     
     def next_robot_arm_movement(self) -> (Vector):
         # if the height is not enough, move Upward first
@@ -296,7 +312,8 @@ class SimScene:
         
         # high enough, move horrizontally to the stick touch position, with some gap space
         if self.robot_arm_state == self.RobotArmState.Horrizontal:
-            distance = self._stick_touch_position(bias_angle = radians(-15)) - self.robot_arm.location
+            # note: 15 degrees is a little too large
+            distance = self._stick_touch_position(bias_angle = radians(-5)) - self.robot_arm.location
             distance.z = 0
             if distance.length < ROBOT_ARM_SPEED * 1.25:
                 self.robot_arm_state = self.RobotArmState.Downward
@@ -315,11 +332,8 @@ class SimScene:
             return Vector((0, 0, 0))
         
         # push
-        local_angle = self._local_arm_angle()
-        if (local_angle + self.thickness_angle)%(2*math.pi) > self.stick.rotation_euler[2]%(2*math.pi):
-            self.stick.rotation_euler[2] = local_angle + self.thickness_angle
-            self.stick_state = self.StickState.Touched
-
+        if self.stick_state == self.StickState.Free:
+            self.robot_arm_state = self.RobotArmState.Upward
         action = self._stick_touch_position(bias_angle=radians(5)) - self.robot_arm.location
         action.z = 0
         return action.normalized()

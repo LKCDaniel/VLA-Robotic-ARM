@@ -2,6 +2,7 @@ import os
 import cv2
 import argparse
 from tqdm import trange
+from glob import glob
 
 
 def images_to_video(image_dir, output_path):
@@ -28,26 +29,31 @@ def images_to_video(image_dir, output_path):
 
 def main(episode_from, episode_to, is_real_time_test=False):
     if is_real_time_test:
-        episode_image_dir = os.path.join(os.path.dirname(__file__), "real_time_test")
-        episode_video_dir = os.path.join(os.path.dirname(__file__), "real_time_test", "videos")
-        os.makedirs(episode_video_dir, exist_ok=True)
         
-        camera_1_dir = os.path.join(episode_image_dir, "camera_1")
-        video_path_1 = os.path.join(episode_video_dir, "camera_1.mp4")
-        images_to_video(camera_1_dir, video_path_1)
+        if episode_to == -1:
+            episode_to = len(glob(os.path.join(os.path.dirname(__file__), "real_time_test", "episode_*")))
+            
+        for i in trange(episode_from, episode_to):
+            episode_image_dir = os.path.join(os.path.dirname(__file__), "real_time_test", f"episode_{i}")
+            episode_video_dir = os.path.join(os.path.dirname(__file__), "real_time_test", "videos", f"episode_{i}")
+            os.makedirs(episode_video_dir, exist_ok=True)
+        
+            camera_1_dir = os.path.join(episode_image_dir, "camera_1")
+            video_path_1 = os.path.join(episode_video_dir, "camera_1.mp4")
+            images_to_video(camera_1_dir, video_path_1)
 
-        camera_2_dir = os.path.join(episode_image_dir, "camera_2")
-        video_path_2 = os.path.join(episode_video_dir, "camera_2.mp4")
-        images_to_video(camera_2_dir, video_path_2)
+            camera_2_dir = os.path.join(episode_image_dir, "camera_2")
+            video_path_2 = os.path.join(episode_video_dir, "camera_2.mp4")
+            images_to_video(camera_2_dir, video_path_2)
 
-        camera_3_dir = os.path.join(episode_image_dir, "camera_3")
-        video_path_3 = os.path.join(episode_video_dir, "camera_3.mp4")
-        images_to_video(camera_3_dir, video_path_3)
+            camera_3_dir = os.path.join(episode_image_dir, "camera_3")
+            video_path_3 = os.path.join(episode_video_dir, "camera_3.mp4")
+            images_to_video(camera_3_dir, video_path_3)
         
         return
     
     if episode_to == -1:
-        episode_to = len(os.listdir(os.path.join(os.path.dirname(__file__), "episodes")))
+        episode_to = len(glob(os.path.join(os.path.dirname(__file__), "episodes", "episode_*")))
         
     for episode_index in trange(episode_from, episode_to):
         episode_image_dir = os.path.join(os.path.dirname(__file__), "episodes", f"episode_{episode_index}")
@@ -77,4 +83,4 @@ if __name__ == "__main__":
     
     main(args.episode_from, args.episode_to, args.is_real_time_test)
     
-    # python ./generate_video.py --episode_from 1 --episode_to 2
+    # python ./generate_video.py --episode_from 0 --episode_to 2

@@ -1,7 +1,102 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
+from torchvision.models import resnet18, ResNet18_Weights
 
+
+class VLA_transformer(nn.Module):
+    def __init__(self, state_dim=3, d_model=256, nhead=4, num_layers=4):
+        super().__init__()
+        
+        resnet = resnet18(weights=ResNet18_Weights.DEFAULT)
+        # resnet_state_dict = load_file("resnet_18_pretrained.safetensors")
+        # resnet.load_state_dict(resnet_state_dict)
+        img_backbone = nn.Sequential(*list(resnet.children())[:-1])  # Remove the final fully connected layer
+        for param in img_backbone.parameters():
+            param.requires_grad = False
+    
+        self.img_encoder = nn.Sequential(
+            img_backbone,
+            nn.Flatten(),
+            nn.Linear(512, d_model, bias=False)
+        )
+        self.state_encoder = nn.Linear(state_dim, d_model, bias=False)
+        self.pos_embed = nn.Parameter(torch.randn(1, 4, d_model)*0.02)  # 4 tokens: 3 images + 1 state
+        
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model, nhead=nhead,
+            norm_first=True,
+            dim_feedforward=d_model*4,
+            batch_first=True,
+            activation='gelu',
+            bias=False
+        )
+        self.transformer = nn.TransformerEncoder(encoder_layer=encoder_layer, num_layers=num_layers, enable_nested_tensor=False)
+        
+        self.layer_norm = nn.LayerNorm(d_model, bias=False)
+        self.head = nn.Linear(4*d_model, 4, bias=True)  # 3 for action prediction, 1 for task completion logits
+        # self.logits_head = nn.Linear(4*d_model, 1, bias=False)
+        
+    def forward(self, img1, img2, img3, state): # img: (N, C, H, W), state: (4)
+        batch_size = img1.size(0)
+        
+        imgs = torch.stack([img1, img2, img3], dim=1).view(batch_size*3, *img1.shape[1:])  # (N*3, C, H, W)
+        img_tokens = self.img_encoder(imgs).view(batch_size, 3, -1)  # (N, 3, d_model)
+        state_token = self.state_encoder(state).unsqueeze(1)  # (N, 1, d_model)
+        
+        context = torch.cat([img_tokens, state_token], dim=1) + self.pos_embed  # (N, 4, d_model)
+        output = self.transformer(context)  # (N, 4, d_model)
+        output = self.layer_norm(output).view(batch_size, -1)  # (N, 4*d_model)
+        output = self.head(output)  # (N, 4)
+        action, logits = output[:, :3], output[:, 3:] # (N, 3), (N, 1)
+        
+        return action, logits
+
+
+# Homoscedastic uncertainty weighting for multi-task learning
+class AutomaticWeightedLoss(nn.Module):
+    def __init__(self, *init_scales, num_tasks=2):
+        super().__init__()
+        # Initialize "s" (log variance) to 0.0. 
+        # s = log(sigma^2). Use s instead of sigma for numerical stability.
+        if init_scales and len(init_scales) == num_tasks:
+            init_s = [-math.log(w) for w in init_scales]
+            self.params = nn.Parameter(torch.tensor(init_s, dtype=torch.float32))
+        else:
+            self.params = nn.Parameter(torch.zeros(num_tasks))
+
+    def forward(self, action_loss, task_loss):
+        # --- Task 0: Action (Regression) ---
+        # Formula: (1 / 2*exp(s)) * Loss + s/2
+        s_action = self.params[0]
+        # We multiply by 0.5 for regression tasks (Gaussian assumption)
+        weighted_action_loss = 0.5 * (torch.exp(-s_action) * action_loss + s_action)
+
+        # --- Task 1: Task Completion (Classification) ---
+        # Formula: (1 / exp(s)) * Loss + s/2 (approx for classification)
+        s_task = self.params[1]
+        weighted_task_loss = torch.exp(-s_task) * task_loss + 0.5 * s_task
+
+        return weighted_action_loss + weighted_task_loss
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# legacy below
 
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -108,7 +203,7 @@ class VisionActionModel(nn.Module):
         f = self.feature_projector(f)
         f = self.feature_fuser(f)
         position_delta = self.position_delta_predictor(f)
-        position_delta = F.normalize(position_delta, p=2, dim=1)
+        # position_delta = F.normalize(position_delta, p=2, dim=1) # don't normalize
         # next_catch = self.next_catch_predictor(f)
         next_task = self.next_task_predictor(f)
         next_state = torch.concatenate([position_delta, next_task], dim=-1)

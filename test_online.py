@@ -7,9 +7,11 @@ import random
 import numpy as np
 from util import read_json
 from scene import SimScene
-from model import VisionActionModel
-from macro import FLOOR_SIZE, ROBOT_ARM_HEIGHT, ROBOT_ARM_SPEED, DEBUG_MODE
+from model import VisionActionModel, VLA_transformer
+from macro import ROBOT_ARM_SPEED, DEBUG_MODE
 import argparse
+from glob import glob
+import torch
 
 
 def normalize_image(img, device):
@@ -20,7 +22,7 @@ def normalize_image(img, device):
 
 
 @torch.inference_mode()
-def inference(episode_save_dir, scene, model, device, action_min, action_max):
+def inference(episode_save_dir, scene, model, threshold, device):
     # action_min = np.array(action_min, dtype=np.float32)
     # action_max = np.array(action_max, dtype=np.float32)
 
@@ -30,15 +32,12 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
     task_state_record = []
 
     frame_count = 0
-    catch_state = 0  # 1 for catching, 0 for not catching
+    # catch_state = 0  # 1 for catching, 0 for not catching
     task_state = 0  # 1 for complete, 0 for not complete
 
-    while (task_state == 0) and (frame_count < 300):
-        # catch_state = 1 if frame_count > 100 else 0
-        state = list(scene.robot_arm.location)
-        # state.append(catch_state)
-        state.append(task_state)
-        state = torch.tensor(state, dtype=torch.float32, device=device).reshape(1, -1)
+    for frame_count in range(300):
+        
+        state = torch.tensor(list(scene.robot_arm.location), dtype=torch.float32, device=device).reshape(1, -1)
 
         save_path_1 = os.path.join(episode_save_dir, "camera_1", f"{frame_count}.png")
         scene.shot_1(save_path_1)
@@ -61,25 +60,24 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
         img3 = normalize_image(img3, device)
         img3 = torch.unsqueeze(img3, dim=0)
 
-        action = model(img1, img2, img3, state).cpu().numpy().reshape(-1)
+        action_pd, logits_pd = model(img1, img2, img3, state)
         # delta_pos = 0.5 * (action[:3] + 1) * (action_max - action_min) + action_min
-        delta_pos = action[:3] * ROBOT_ARM_SPEED
+        delta_pos = action_pd[0] * ROBOT_ARM_SPEED
+        logits_pd = torch.sigmoid(logits_pd).item()
         # next_catch_state = 1 if action[3] > 0.3 else 0
-        next_task_state = 1 if action[3] > 0.7 else 0
+        if logits_pd > threshold:
+            break
 
         # scene.move_robot_arm(dx=delta_pos[0], dy=delta_pos[1], dz=delta_pos[2])
-        if scene.update_frame(dx=delta_pos[0], dy=delta_pos[1], dz=delta_pos[2]):
-            next_task_state = 1
+        scene.update_frame(dx=delta_pos[0], dy=delta_pos[1], dz=delta_pos[2])
         
         # if catch_state == 1:
         #     scene.move_object(dx=delta_pos[0], dy=delta_pos[1], dz=delta_pos[2])
-        frame_count += 1
 
         # catch_state = next_catch_state
-        task_state = next_task_state
 
         # catch_state_record.append(action[3].item())
-        task_state_record.append(action[3].item())
+        task_state_record.append(logits_pd)
 
     data = {
         # "catch_state": catch_state_record,
@@ -92,77 +90,70 @@ def inference(episode_save_dir, scene, model, device, action_min, action_max):
     }
 
     state_save_path = os.path.join(episode_save_dir, "robot_state.json")
-    print(catch_state, task_state, frame_count)
+    print(task_state, frame_count)
     with open(state_save_path, "w") as f:
         json.dump(data, f)
 
 
-def main(use_episode_init):
-    # object_init_x = 8 * random.uniform(-1, 1)
-    # object_init_y = 8 * random.uniform(-1, 1)
-    # robot_arm_init_x = 4 * random.uniform(-1, 1)
-    # robot_arm_init_y = 4 * random.uniform(-1, 1)
-    # robot_arm_init_z = random.uniform(6, 10)
-    if use_episode_init >= 0:
-        init_data = read_json(os.path.join(os.path.dirname(__file__), "episodes", f"episode_{use_episode_init}", "robot_state.json"))
-        sun_rx_radian = init_data["sun_rx_radian"]
-        sun_ry_radian = init_data["sun_ry_radian"]
-        sun_density = init_data["sun_density"]
-        bg_r = init_data["bg_r"]
-        bg_g = init_data["bg_g"]
-        bg_b = init_data["bg_b"]
-        bg_density = init_data["bg_density"]
-    else:
-        sun_rx_radian = random.uniform(math.pi / 8, 7 * math.pi / 8)
-        sun_ry_radian = random.uniform(math.pi / 8, 7 * math.pi / 8)
-        sun_density = 6.0
-        bg_r = 1.0
-        bg_g = 1.0
-        bg_b = 1.0
-        bg_density = 0.2
-
-    stat_path = "data_train.json"
-    init_data = read_json(stat_path)
-    action_min = init_data["action_min"]
-    action_max = init_data["action_max"]
+def main(episode_n: int, identifier: str):
+    assert episode_n > 0
+    
+    sun_rx_radian = random.uniform(math.pi / 8, 7 * math.pi / 8)
+    sun_ry_radian = random.uniform(math.pi / 8, 7 * math.pi / 8)
+    sun_density = 6.0
+    bg_r = 1.0
+    bg_g = 1.0
+    bg_b = 1.0
+    bg_density = 0.2
 
     device = "cuda"
-    model = VisionActionModel().to(device)
-    checkpoint_pth = "checkpoint.pth"
-    assert os.path.exists(checkpoint_pth)
+    # model = VisionActionModel().to(device)
+    model = VLA_transformer().to(device)
+    model = torch.compile(model)
+    torch.set_float32_matmul_precision('high')
+    
+    checkpoint_pth = os.path.join(identifier, "checkpoint.pth")
+    config_path = os.path.join(identifier, "config.json")
     model_state = torch.load(checkpoint_pth)
     model.load_state_dict(model_state)
     model.eval()
+    config = read_json(config_path)
+    threshold = config.get("best_threshold")
     
-    will_stick_free = random.uniform(0, 1) > 0.5
-    free_angle_percentage = random.triangular(low=0.15, high=0.95, mode=0.9)
+    existing_episodes = glob(os.path.join(os.path.dirname(__file__), "real_time_test", "episode_*"))
+    existing_indices = [int(os.path.basename(ep_dir).split("_")[-1]) for ep_dir in existing_episodes]
+    start_i = max(existing_indices) + 1 if len(existing_indices) > 0 else 0
     
-    # debug
-    if DEBUG_MODE:
-        will_stick_free = True
-        free_angle_percentage = 0.6806
+    for episode_idx in range(start_i, start_i + episode_n):
+    
+        will_stick_free = random.uniform(0, 1) > 0.5
+        free_angle_percentage = random.triangular(low=0.4, high=0.95, mode=0.9)
         
-        
-    scene = SimScene(resolution=512, board_init_x=0, board_init_y=0,
-                     robot_arm_init_x=0,
-                     robot_arm_init_y=0,
-                     robot_arm_init_z=3.0,
-                     will_stick_free=will_stick_free, free_angle_percentage=free_angle_percentage,
-                     sun_rx_radian=sun_rx_radian, sun_ry_radian=sun_ry_radian, sun_density=sun_density,
-                     bg_r=bg_r, bg_g=bg_g, bg_b=bg_b, bg_density=bg_density)
-    episode_save_dir = os.path.join(os.path.dirname(__file__), "real_time_test")
-    inference(episode_save_dir, scene, model, device, action_min, action_max)
+        # debug
+        if DEBUG_MODE:
+            will_stick_free = True
+            free_angle_percentage = 0.6806
+            
+        scene = SimScene(resolution=224, board_init_x=0, board_init_y=0,
+                        robot_arm_init_x=0,
+                        robot_arm_init_y=0,
+                        robot_arm_init_z=3.0,
+                        will_stick_free=will_stick_free, free_angle_percentage=free_angle_percentage,
+                        sun_rx_radian=sun_rx_radian, sun_ry_radian=sun_ry_radian, sun_density=sun_density,
+                        bg_r=bg_r, bg_g=bg_g, bg_b=bg_b, bg_density=bg_density)
+        episode_save_dir = os.path.join(os.path.dirname(__file__), "real_time_test", f"episode_{episode_idx}")
+        inference(episode_save_dir, scene, model, threshold, device)
 
 
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="test online inference")
-    parser.add_argument("--use_episode_init", type=int, default=-1, help="which episode to use, -1 for real time test")
+    parser.add_argument("--episode_n", type=int, default=1, help="number of runs")
+    parser.add_argument("--identifier", type=str, help="identifier of the run")
     args = parser.parse_args()
     
-    main(args.use_episode_init)
-
-# python ./test_online.py --use_episode_init 0
+    main(args.episode_n, args.identifier)
+# python ./test_online.py --episode_n 5 --identifier run_001
 
 
 

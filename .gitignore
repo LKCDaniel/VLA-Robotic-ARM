@@ -9,3 +9,9 @@ real_time_test/
 *.npz
 *.pth
 *.json
+
+episodes*
+real_time_test*
+old
+checkpoint.pth
+run*

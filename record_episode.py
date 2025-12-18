@@ -4,7 +4,7 @@ import random
 from scene import SimScene
 import numpy as np
 from util import normalize_vector, save_json
-from macro import FLOOR_SIZE, ROBOT_ARM_HEIGHT, ROBOT_ARM_SPEED, DEBUG_MODE
+from macro import ROBOT_ARM_SPEED, DEBUG_MODE
 import math
 
 
@@ -14,16 +14,14 @@ def record_episode(episode_save_dir, scene, data:dict={}):
     os.makedirs(os.path.join(episode_save_dir, "camera_3"), exist_ok=True)
     robot_arm_position_list = []
 
-    frame_count = 0
     free_frame = -1
-    # touching_list = []
     temp_variable = scene.will_stick_free
     
     # # debug
     # import time
     # print(f"\n{'='*20} DIAGNOSIS START {'='*20}")
 
-    while True:
+    for frame_count in range(300):  # max 1000 frames per episode
         # # debug
         # t0 = time.time()
         
@@ -44,10 +42,11 @@ def record_episode(episode_save_dir, scene, data:dict={}):
         # t_cam1 = time.time() - t0
         # t0 = time.time()
 
-        action = scene.next_robot_arm_movement() * ROBOT_ARM_SPEED
-        frame_count += 1
-        if scene.update_frame(dx=action[0], dy=action[1], dz=action[2]):
+        if scene.is_stick_inplace():
             break
+        
+        action = scene.next_robot_arm_movement() * ROBOT_ARM_SPEED
+        scene.update_frame(dx=action[0], dy=action[1], dz=action[2])
         
         # # debug
         # t_sim = time.time() - t0
@@ -55,7 +54,7 @@ def record_episode(episode_save_dir, scene, data:dict={}):
 
     data["robot_arm_position"] = robot_arm_position_list
     data["free_frame"] = free_frame # -1 if never free
-    data["task_frame"] = frame_count
+    # data["task_frame"] = frame_count
 
     state_save_path = os.path.join(episode_save_dir, "robot_state.json")
     save_json(data, state_save_path)
@@ -83,11 +82,11 @@ def generate_episodes(episode_from, episode_to, resolution):
         bg_density = 0.2
         
         will_stick_free = random.uniform(0, 1) > 0.5
-        free_angle_percentage = random.triangular(low=0.4, high=0.95, mode=0.9)
+        free_angle_percentage = random.triangular(low=0.4, high=0.95, mode=0.8)
         
-        if DEBUG_MODE:
-            will_stick_free = True # debug
-            free_angle_percentage = 0.4 # debug
+        # if DEBUG_MODE:
+        #     will_stick_free = True # debug
+        #     free_angle_percentage = 0.4 # debug
         
         scene = SimScene(resolution=resolution,
                          board_init_x=0, board_init_y=0,
@@ -120,14 +119,14 @@ def generate_episodes(episode_from, episode_to, resolution):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="prepare dataset")
-    parser.add_argument("--episode_from", type=int, required=True, default=0)
-    parser.add_argument("--episode_to", type=int, required=True, default=500)
-    parser.add_argument("--resolution", type=int, required=True, default=256)
+    parser.add_argument("--episode_from", type=int, default=0, required=False)
+    parser.add_argument("--episode_to", type=int, required=True)
+    parser.add_argument("--resolution", type=int, default=224)
 
     args = parser.parse_args()
     generate_episodes(episode_from=args.episode_from, episode_to=args.episode_to, resolution=args.resolution)
 
-# python record_episode.py --episode_from 1 --episode_to 2 --resolution 256
+# python record_episode.py --episode_from 0 --episode_to 1000 --resolution 224
 
 
 

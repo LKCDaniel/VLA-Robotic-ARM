@@ -1,10 +1,13 @@
-OBJECT_SIZE = 2
-OBJECT_INIT_Z = 1
-ROBOT_ARM_INIT_LOCATION = (5, -5, 6)
-ROBOT_ARM_HEIGHT = 6
-BIN_SIZE = 4
-BIN_LOCATION = (7, 7, 0.01)
+# OBJECT_SIZE = 2
+# OBJECT_INIT_Z = 1
+# ROBOT_ARM_INIT_LOCATION = (5, -5, 6)
+# ROBOT_ARM_HEIGHT = 6
+# BIN_SIZE = 4
+# BIN_LOCATION = (7, 7, 0.01)
 FLOOR_SIZE = 20
 ROBOT_ARM_SPEED = 0.15
 
-DEBUG_MODE = True
+# True or False
+DEBUG_MODE = False
+
+FRAME_TOLERANCE = 5 # Soft range for logit prediction of whether task completed
