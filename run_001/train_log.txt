@@ -117,3 +117,13 @@ GPU memory: 0.12 GB allocated, 0.67 GB reserved.
 System RAM : 92.61 GB used / 251.52 GB total (36.8%)
 Script RAM : 51.88 GB used by this process
 
+
+GPU memory: 0.05 GB allocated, 0.07 GB reserved.
+System RAM : 41.31 GB used / 251.52 GB total (16.4%)
+Script RAM : 0.77 GB used by this process
+
+Using config from run_001/config.json
+Device: cuda, batch size: 64, prior_epochs: 8, pos_weight: 50, awl_action_w: 65.4483, awl_task_w: 18.3155, threshold: 0.7800
+Compiling model...
+Loaded model weights from run_001/checkpoint.pth
+Loading training dataset...

@@ -22,12 +22,12 @@ torch.set_float32_matmul_precision('high')
         
 
 class Trainer_VLA_Transformer():
-    def __init__(self, identifier:str, num_epochs=10, positive_weight=50, lr=1e-2, save_every=1, validate_every=1, batch_size=512):
+    def __init__(self, identifier:str, num_epochs, init_lr, positive_weight, save_every, validate_every, batch_size):
         self.device = "cuda"
         self.model = VLA_transformer().to(self.device)
         self.num_epochs = num_epochs
         self.identifier = identifier
-        self.lr = lr
+        self.lr = init_lr
         self.save_every = save_every
         self.validate_every = validate_every
 
@@ -35,6 +35,7 @@ class Trainer_VLA_Transformer():
         self.loss_record_save_path = os.path.join(self.identifier, 'training_loss_record.pth')
         self.config_path = os.path.join(self.identifier, 'config.json')
         self.log_path = os.path.join(self.identifier, "train_log.txt")
+        os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
         sys.stdout = Logger(self.log_path)
         
         check_memory_status()
@@ -52,8 +53,8 @@ class Trainer_VLA_Transformer():
             print(f"Starting new training run: {self.identifier}")
             os.makedirs(self.identifier, exist_ok=True)
             self.batch_size = batch_size
-            self.awl_action_w = 0.8
-            self.awl_task_w = 1.6
+            self.awl_action_w = 1
+            self.awl_task_w = 1
             self.current_epoch = 0
             self.threshold = 0.5
             self.positive_weight = torch.tensor([positive_weight], device=self.device) # only 1% positive samples for task completion
@@ -75,17 +76,17 @@ class Trainer_VLA_Transformer():
             {'params': self.awl.params, 'weight_decay': 0}
         ], lr=self.lr)
         
-        # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        #     self.optimizer,
-        #     T_max=self.num_epochs,
-        #     eta_min=1e-6
-        # )
-        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             self.optimizer,
-            T_0=10,
-            T_mult=2,
+            T_max=self.num_epochs,
             eta_min=1e-6
         )
+        # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        #     self.optimizer,
+        #     T_0=10,
+        #     T_mult=2,
+        #     eta_min=1e-6
+        # )
 
         print("Loading training dataset...")
         dataset_train = BendStickDataset(data_path="data_train.npz")
@@ -115,13 +116,9 @@ class Trainer_VLA_Transformer():
 
 
     def __call__(self):
-        action_loss_list = []
-        logits_loss_list = []
-        fuse_loss_list = []
-        action_L2_error_list = []
-        awl_actionW_list, awl_taskW_list = [], []
-        
         self.model.train()
+        check_memory_status()
+        print('\n' + '='*20 + ' Training ' + '='*20)
 
         for epoch in range(self.num_epochs):
             epoch_size = len(self.dataloader_train)
@@ -129,6 +126,12 @@ class Trainer_VLA_Transformer():
                                 total=epoch_size,
                                 desc=f"{epoch + 1}/{self.num_epochs}",
                                 ncols=140)
+            
+            action_loss_list = []
+            logits_loss_list = []
+            fuse_loss_list = []
+            action_L2_error_list = []
+            awl_actionW_list, awl_taskW_list = [], []
 
             for _, (img1, img2, img3, current_state, gt) in progress_bar:
                 
@@ -168,17 +171,6 @@ class Trainer_VLA_Transformer():
                 action_L2_error_list.append(torch.mean(torch.norm(action_pd - gt[:, :3], dim=1)).item())
                 awl_actionW_list.append(w_action)
                 awl_taskW_list.append(w_task)
-                
-            
-            if epoch == 0:
-                continue
-            
-            if epoch % self.save_every == 0 or epoch == self.num_epochs - 1:
-                torch.save(self.model.state_dict(), self.checkpoint_path)
-                print(f"Saved model to {self.checkpoint_path}")
-
-            if epoch % self.validate_every == 0 or epoch == self.num_epochs - 1:
-                self.validate()
             
             # update epoch info in config
             with open(self.config_path, 'w') as f:
@@ -192,26 +184,36 @@ class Trainer_VLA_Transformer():
                     "awl_task_weight": w_task
                 }, f)
             
+            # save loss record
+            if os.path.exists(self.loss_record_save_path):
+                record = torch.load(self.loss_record_save_path)
+                fuse_loss_list = record['total_loss'] + fuse_loss_list
+                action_loss_list = record['action_loss'] + action_loss_list
+                logits_loss_list = record['logits_loss'] + logits_loss_list
+                action_L2_error_list = record['action_L2_error'] + action_L2_error_list
+                awl_actionW_list = record['awl_action_weight'] + awl_actionW_list
+                awl_taskW_list = record['awl_task_weight'] + awl_taskW_list
+            torch.save({
+                "total_loss": fuse_loss_list,
+                "action_loss": action_loss_list,
+                "logits_loss": logits_loss_list,
+                "action_L2_error": action_L2_error_list,
+                "awl_action_weight": awl_actionW_list,
+                "awl_task_weight": awl_taskW_list
+            }, self.loss_record_save_path)
+            
+            if epoch % self.save_every == 0 or epoch == self.num_epochs - 1:
+                torch.save(self.model.state_dict(), self.checkpoint_path)
+                print(f"Saved model to {self.checkpoint_path}")
+
+            if epoch % self.validate_every == 0 or epoch == self.num_epochs - 1:
+                self.validate()
+                if epoch != self.num_epochs - 1:
+                    print('\n' + '='*20 + ' Training ' + '='*20)
+                    
             self.scheduler.step()
-            check_memory_status()
             self.current_epoch += 1
         
-        if os.path.exists(self.loss_record_save_path):
-            record = torch.load(self.loss_record_save_path)
-            fuse_loss_list = record['total_loss'] + fuse_loss_list
-            action_loss_list = record['action_loss'] + action_loss_list
-            logits_loss_list = record['logits_loss'] + logits_loss_list
-            action_L2_error_list = record['action_L2_error'] + action_L2_error_list
-            awl_actionW_list = record['awl_action_weight'] + awl_actionW_list
-            awl_taskW_list = record['awl_task_weight'] + awl_taskW_list
-        torch.save({
-            "total_loss": fuse_loss_list,
-            "action_loss": action_loss_list,
-            "logits_loss": logits_loss_list,
-            "action_L2_error": action_L2_error_list,
-            "awl_action_weight": awl_actionW_list,
-            "awl_task_weight": awl_taskW_list
-        }, self.loss_record_save_path)
 
 
     @torch.no_grad()
@@ -287,7 +289,7 @@ class Trainer_VLA_Transformer():
         # Find Best Threshold (by Accuracy)
         best_idx = np.argmax(accuracies)
         best_threshold = thresholds[best_idx]
-        self.threshold = self.threshold * 0.8 + best_threshold * 0.2
+        self.threshold = (best_threshold + 0.5) * 0.5 # smooth towards 0.5 to avoid extreme
         print(f'Updated threshold: {self.threshold:.4f} with accuracy {accuracies[best_idx]:.4f}')
         
         # 2. Completion Metrics (Classification)
@@ -313,24 +315,35 @@ class Trainer_VLA_Transformer():
         
         # Save plot
         filename = os.path.join(self.identifier, 'validation', f'threshold_analysis_epoch_{self.current_epoch}.png')
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
         plt.savefig(filename)
         plt.close() # Close figure to free memory
 
         # --- Reporting ---
         print(f'Losses      : Total {loss_sum / n_batches:.4f} | Action {action_loss_sum / n_batches:.4f} | Logits {logits_loss_sum / n_batches:.4f}')
         print(f'Action Error: Mean {np.mean(l2_errors):.4f} | Median {np.median(l2_errors):.4f} | Max {np.max(l2_errors):.4f}')
-        print(f'Task Predict: AUC {auc:.4f} | Acc {acc:.4f} | F1 {f1:.4f}\n')
-        print(f'TP: {tps[best_idx]}, FP: {fps[best_idx]}, TN: {tns[best_idx]}, FN: {fns[best_idx]}')
+        print(f'Task Predict: AUC {auc:.4f} | Acc {acc:.4f} | F1 {f1:.4f} | TP {tps[best_idx]} | FP {fps[best_idx]} | TN {tns[best_idx]} | FN {fns[best_idx]}')
         print(f'Plot saved to {filename}\n')
         
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train VLA Transformer Model")
-    parser.add_argument("--num_epochs", type=int, default=10, help="Number of training epochs")
     parser.add_argument("--identifier", type=str, required=True, help="Identifier for the training run")
+    parser.add_argument("--num_epochs", type=int, default=10, help="Number of training epochs")
+    parser.add_argument("--init_lr", type=float, default=0.01, help="Initial learning rate")
+    parser.add_argument("--positive_weight", type=float, default=100.0, help="Positive class weight for BCE loss")
+    parser.add_argument("--save_every", type=int, default=1, help="Save model every N epochs")
+    parser.add_argument("--validate_every", type=int, default=1, help="Validate model every N epochs")
+    parser.add_argument("--batch_size", type=int, default=1024, help="Training batch size")
     args = parser.parse_args()
-    Trainer_VLA_Transformer(num_epochs=args.num_epochs, identifier=args.identifier)()
+    Trainer_VLA_Transformer(identifier=args.identifier, 
+                            num_epochs=args.num_epochs,
+                            init_lr=args.init_lr, 
+                            positive_weight=args.positive_weight,
+                            save_every=args.save_every,
+                            validate_every=args.validate_every, 
+                            batch_size=args.batch_size)()
     
     
 # python train.py --num_epochs 10 --identifier run_001

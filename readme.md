@@ -1,20 +1,12 @@
-# Pick & Place Demo
+# Bend Stick Demo
 
-The project is to show how to train a deep learning model to complete a two-stage task. The 
-first stage is to reach and pick a cubic object on the ground. The second stage is then to 
-carry the object to the target place.
+Within an industrial context, a subtask on a production line requires the robot arm to bend an elastic stick on the phone. There's a chance that the stick escapes during the motion of pushing it to the side.
+
+In this project, I trained a simple multi-task VLA model that is capable of end-to-end robot-arm control. It takes in pure visual input, and output the robot arm's movement, as well as a task-completion classification.
 
 ## Simulation Scene Description
 
-We simulate the task in a virtual 3D environment.
-
-The ground is simulated as a beige-colored 
-flat square. The robotic arm is simulated by a red-colored square column. The object to be 
-caught is simulated as a blue-colored cube. The target place is green-colored square area 
-on the ground.
-
-At the very beginning of an episode, the robotic arm is randomly placed over the ground, 
-and the object is randomly placed on the ground.
+The first phase of this task is to pretrain the model in a virtual 3D environment. The stick has a random chance of escaping from the robot's rod.
 
 ## Setup Environment
 
@@ -23,6 +15,7 @@ and the object is randomly placed on the ground.
 python --version
 
 # create python virtual environment
+# actually newer python versions would also work
 py -3.11 -m venv venv
 
 # activate python virtual environment on windows
@@ -41,7 +34,7 @@ bash install.sh
 We choose blender rather than packages like pyvista just because blender use more modern 
 graphic API OpenGL, not that modern, but still better than VTK used by pyvista.
 ```bash
-python record_episode.py --num_episodes 500 --resolution 128
+python record_episode.py --episode_to 1000 --resolution 224
 ```
 
 Then prepare the train and validate dataset.
@@ -57,8 +50,9 @@ python train.py
 
 ## Test Online
 Here "online" means the deep learning model interacts dynamically with the synthesis scene.
+You need to adjust the parameters. (very simple)
 ```bash
-python test_online.py
+python test_online.py -h
 ```
 
 ## Turn Images into Video
@@ -68,6 +62,6 @@ python generate_video.py
 ```
 
 ## Sample of online test data, from three cameras of different view
-![camera_1](real_time_test/camera_1.gif)
-![camera_2](real_time_test/camera_2.gif)
-![camera_3](real_time_test/camera_3.gif)
+![camera_1]()
+![camera_2]()
+![camera_3]()
