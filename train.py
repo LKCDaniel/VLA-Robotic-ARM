@@ -323,7 +323,7 @@ class Trainer_VLA_Transformer():
         print(f'Losses      : Total {loss_sum / n_batches:.4f} | Action {action_loss_sum / n_batches:.4f} | Logits {logits_loss_sum / n_batches:.4f}')
         print(f'Action Error: Mean {np.mean(l2_errors):.4f} | Median {np.median(l2_errors):.4f} | Max {np.max(l2_errors):.4f}')
         print(f'Task Predict: AUC {auc:.4f} | Acc {acc:.4f} | F1 {f1:.4f} | TP {tps[best_idx]} | FP {fps[best_idx]} | TN {tns[best_idx]} | FN {fns[best_idx]}')
-        print(f'Plot saved to {filename}\n')
+        print(f'Plot saved to {filename}')
         
 
 
@@ -334,7 +334,7 @@ if __name__ == '__main__':
     parser.add_argument("--init_lr", type=float, default=0.01, help="Initial learning rate")
     parser.add_argument("--positive_weight", type=float, default=100.0, help="Positive class weight for BCE loss")
     parser.add_argument("--save_every", type=int, default=1, help="Save model every N epochs")
-    parser.add_argument("--validate_every", type=int, default=1, help="Validate model every N epochs")
+    parser.add_argument("--validate_every", type=int, default=5, help="Validate model every N epochs")
     parser.add_argument("--batch_size", type=int, default=1024, help="Training batch size")
     args = parser.parse_args()
     Trainer_VLA_Transformer(identifier=args.identifier, 
